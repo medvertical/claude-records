@@ -12,7 +12,7 @@
       "source": "./plugins/records",
       "description": "FHIR validation and data-quality workflows with Records.",
       "category": "development",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "author": {
         "name": "MedVertical"
       },
@@ -31,7 +31,7 @@
       "source": "./plugins/records-fhir-validation",
       "description": "Deprecated compatibility plugin. Use records@records and /records:fhir-validation.",
       "category": "development",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "author": {
         "name": "MedVertical"
       },

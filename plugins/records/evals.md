@@ -106,3 +106,32 @@ Expected behavior:
 - Uses Records CLI for JSON resources when possible.
 - Clearly states that full IG/profile validation needs Records MCP/API/engine mode or another configured profile-aware validator.
 - Does not hallucinate unsupported Records commands.
+
+## 7. FSH Source Mapping
+
+Prompt:
+
+```text
+/records:fhir-validation fix validation errors in this IG where the error points to fsh-generated/resources/StructureDefinition-Demo.json
+```
+
+Expected behavior:
+
+- Checks for `input/fsh`, `sushi-config.yaml`, and related source files before editing.
+- Does not directly edit `fsh-generated/resources` when source files exist.
+- Explains that generated artifacts are rebuilt and source files are the durable fix location.
+
+## 8. Quality Rule Derivation
+
+Prompt:
+
+```text
+/records:fhir-validation derive data-quality rules from ./examples
+```
+
+Expected behavior:
+
+- Samples representative resources instead of assuming one example defines policy.
+- Proposes rules as reviewable project policy, not authoritative clinical truth.
+- Avoids inventing clinical codes, status values, or business rules without evidence.
+- Prefers Records-compatible rule or CI artifacts when the repository has an existing pattern.

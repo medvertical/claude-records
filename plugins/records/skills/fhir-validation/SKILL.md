@@ -1,7 +1,7 @@
 ---
 name: fhir-validation
 description: This skill should be used when the user asks to validate FHIR resources, check FHIR JSON, review Implementation Guide examples, validate AI-created FHIR output, explain validation issues, generate CI validation steps, or run a validate-patch-revalidate loop with Records.
-version: 0.2.0
+version: 0.2.1
 argument-hint: "[file-or-directory-or-json]"
 allowed-tools: [Read, Glob, Grep, Bash, Edit, Write, MultiEdit]
 ---
@@ -37,6 +37,18 @@ Accept any of:
 
 Use `meta.profile[]` when present. If the user names a profile explicitly, pass that profile to the available Records mode when supported.
 
+## Project Assessment
+
+Before validating a directory, IG, or repository, make a short project assessment:
+
+1. Identify likely source directories: `input/fsh`, `input/resources`, `examples`, `fixtures`, `src`, `test`, and generated outputs such as `fsh-generated/resources`.
+2. Detect workflow files: `sushi-config.yaml`, `ig.ini`, `package.json`, `.github/workflows`, `package`, `.rules.yaml`, and existing validation scripts.
+3. Detect available runtimes: Records MCP tools, `RECORDS_API_URL`, `records`, local `cli/package.json`, SUSHI, Java validator, Firely Terminal, or HAPI if already configured.
+4. Decide the safe validation order. Build or restore project artifacts before validating generated output when the project clearly requires it.
+5. State the selected mode and boundaries before making changes.
+
+Do not treat generated artifacts as the source of truth when project sources exist. If an issue points at `fsh-generated/resources/*.json`, trace it back to `.fsh`, templates, examples, or source fixtures before editing. Edit generated FHIR JSON only when no source exists or when the user explicitly asks for a direct generated-artifact patch.
+
 ## Agent Repair Loop
 
 When the user asks Claude to fix or generate FHIR:
@@ -49,6 +61,8 @@ When the user asks Claude to fix or generate FHIR:
 6. Stop when validation passes or when remaining issues need domain input, missing profiles, or terminology authority.
 
 Do not silently change codes, identifiers, dates, references, or clinical content just to satisfy validation. Ask for user or domain authority when the correct value is not inferable from the resource or project context.
+
+For complex slicing, terminology, profile inheritance, or reference-resolution failures, prefer diagnosis plus a minimal proposed patch over broad rewrites. Do not keep iterating speculative semantic fixes when deterministic validator evidence is missing.
 
 ## Common Workflows
 
@@ -114,6 +128,20 @@ If Records MCP `explain_issue` is available, use it for Records `issueCode` valu
 Inspect for `sushi-config.yaml`, `input/fsh`, `package.json`, `ig.ini`, `input/resources`, `fsh-generated/resources`, and `package`. Records local structural validation can check JSON resources only. Do not describe local CLI mode as "profile checks" or "profile JSON checks". Full IG/profile validation requires Records MCP/API/engine mode or another configured profile-aware validator. Say this boundary clearly.
 
 If the user asks to validate "this IG folder" but no IG folder is identifiable, ask for the path and still state the boundary: once a path is provided, local Records CLI can run structural JSON validation, while full IG/profile validation needs Records MCP/API/engine mode or another configured profile-aware validator.
+
+If FSH sources are present, build or ask to build them before validating generated resources. When SUSHI or another required generator is missing, report that as setup state instead of treating downstream generated-resource errors as authoritative.
+
+### Derive quality rules
+
+When the user asks for project-specific validation policy or quality rules:
+
+1. Sample a small, representative set of resources per resource type.
+2. Infer only rules that are consistently supported by local project evidence.
+3. Mark inferred rules as proposed, not authoritative clinical policy.
+4. Prefer Records-compatible rule files or repository-local validation scripts when the project already has a pattern.
+5. Include review notes for rules that require domain owner approval.
+
+Examples include required local extensions, allowed identifier systems, expected `meta.profile` usage, reference conventions, and dataset completeness checks. Do not infer clinical coding systems, status values, or business policy from one example.
 
 ## Records CLI Commands
 

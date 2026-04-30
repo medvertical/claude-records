@@ -1,7 +1,7 @@
 ---
 name: records-fhir-validation
 description: This skill should be used when the user asks to validate FHIR resources, check FHIR JSON, review Implementation Guide examples, validate AI-created FHIR output, explain validation issues, generate CI validation steps, or run a validate-patch-revalidate loop with Records.
-version: 0.2.0
+version: 0.2.1
 argument-hint: "[file-or-directory-or-json]"
 allowed-tools: [Read, Glob, Grep, Bash, Edit, Write, MultiEdit]
 ---
