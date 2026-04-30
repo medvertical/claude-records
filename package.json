@@ -1,0 +1,9 @@
+{
+  "name": "claude-records",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "test": "node plugins/records/scripts/smoke-test.mjs"
+  }
+}

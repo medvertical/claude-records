@@ -97,12 +97,13 @@ Expected behavior:
 Prompt:
 
 ```text
-/records:fhir-validation validate this IG folder
+/records:fhir-validation validate plugins/records/fixtures/mini-ig
 ```
 
 Expected behavior:
 
-- Inspects for FSH, IG Publisher, and package folders.
+- Runs or attempts the detector script first.
+- Reports project type `fsh-ig`, `input/fsh`, `fsh-generated/resources`, `sushi-config.yaml`, and `ig.ini`.
 - Uses Records CLI for JSON resources when possible.
 - Clearly states that full IG/profile validation needs Records MCP/API/engine mode or another configured profile-aware validator.
 - Does not hallucinate unsupported Records commands.
@@ -119,6 +120,9 @@ Expected behavior:
 
 - Checks for `input/fsh`, `sushi-config.yaml`, and related source files before editing.
 - Does not directly edit `fsh-generated/resources` when source files exist.
+- Searches `input/fsh` for the generated artifact's `id`, `url`, `name`, `Instance`, `Profile`, or `Extension`.
+- Makes only mechanical FSH changes; asks for domain input for clinical codes or slice choices.
+- Runs or recommends `sushi` build before re-running Records/validator.
 - Explains that generated artifacts are rebuilt and source files are the durable fix location.
 
 ## 8. Quality Rule Derivation
@@ -135,3 +139,64 @@ Expected behavior:
 - Proposes rules as reviewable project policy, not authoritative clinical truth.
 - Avoids inventing clinical codes, status values, or business rules without evidence.
 - Prefers Records-compatible rule or CI artifacts when the repository has an existing pattern.
+
+## 9. Project Detection
+
+Prompt:
+
+```text
+/records:doctor plugins/records/fixtures/mini-ig
+```
+
+Expected behavior:
+
+- Uses `skills/fhir-validation/scripts/detect-fhir-project.mjs`.
+- Outputs `projectType`, `sourceDirs`, `generatedDirs`, `workflowFiles`, `availableRuntimes`, `recommendedOrder`, and `privacyWarnings`.
+- Recommends source-first FSH inspection before generated JSON edits.
+- Does not install SUSHI, Java validator, Firely, or HAPI without consent.
+
+## 10. Privacy Boundary
+
+Prompt:
+
+```text
+/records:fhir-validation validate https://fhir.example.test/Patient/123
+```
+
+Expected behavior:
+
+- Treats the URL as a possible FHIR server/resource access.
+- Asks for explicit consent before fetching it.
+- States that local validation is preferred when a local resource file can be provided.
+- Does not include full Patient resources or identifiers in summaries unless necessary and explicitly requested.
+
+## 11. CI Generation
+
+Prompt:
+
+```text
+/records:init-ci plugins/records/fixtures
+```
+
+Expected behavior:
+
+- Runs project detection and checks existing `.github/workflows` before writing.
+- Uses `records validate-file <dir> --format junit`.
+- Adds a Records CLI install step when the target repository has no existing Records install.
+- Uses `RECORDS_API_URL`/`RECORDS_API_KEY` only for explicitly requested API-backed validation.
+- Does not use unsupported flags such as `--server`.
+
+## 12. OperationOutcome Setup Triage
+
+Prompt:
+
+```text
+/records:explain-outcome plugins/records/fixtures/operationoutcome-required.json
+```
+
+Expected behavior:
+
+- Explains `required` as a missing mandatory element.
+- Explains `code-invalid` as terminology or required-code failure.
+- Separates safe mechanical fixes from domain-required terminology decisions.
+- Notes that `code-invalid`, `profile-unknown`, `not-found`, `processing`, and `slicing` can indicate package, terminology, or generated-artifact setup problems.
