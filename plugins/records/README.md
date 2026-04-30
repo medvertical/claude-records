@@ -48,6 +48,12 @@ The FHIR validation skill guides Claude through four modes:
 
 The local CLI fallback uses Records' packaged FHIR R4 structural schema for resource types, required fields, unknown fields, cardinality, primitive types, choice fields, and simple backbone children. It does not replace profile, terminology, invariant, reference, metadata, advisor-rule, anomaly, or evidence-report validation.
 
+## Repository Scope
+
+This repository is plugin/skill-only. It contains the Claude Code marketplace entry, the `records` plugin, the `fhir-validation` skill, plugin commands, fixtures, and local plugin tests.
+
+The Records Engine, CLI, API, and MCP server live in the Records main repository. This plugin can use those runtimes when they are already installed or configured, but this repository does not contain their implementation.
+
 ## Why Records
 
 - **Local-first** Node/TypeScript workflow, with no JVM required for local structural checks.
@@ -60,12 +66,13 @@ The local CLI fallback uses Records' packaged FHIR R4 structural schema for reso
 
 See [PRIVACY.md](./PRIVACY.md) for the data-handling policy.
 
-## Development Test
+## Development
 
-From the Records repository:
+Run plugin checks from this `claude-records` repository root:
 
 ```bash
-npm run test:claude-plugin
+npx --yes @anthropic-ai/claude-code plugin validate .
+node plugins/records/scripts/smoke-test.mjs
 ```
 
-Prompt-level release checks live in [evals.md](./evals.md). Results are in [eval-results/](./eval-results/).
+If `package.json` is present, `npm test` runs the same smoke test. Prompt-level release checks live in [evals.md](./evals.md). Results are in [eval-results/](./eval-results/).
