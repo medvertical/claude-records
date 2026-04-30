@@ -29,7 +29,13 @@ When a validation error points to `fsh-generated/resources/*.json`:
 
 1. Do not directly edit generated JSON if `input/fsh` exists.
 2. Extract `id`, `url`, `name`, `resourceType`, `type`, `baseDefinition`, and relevant element paths from the generated JSON.
-3. Search `input/fsh` for matching declarations:
+3. Prefer the helper script:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/skills/fhir-validation/scripts/map-generated-to-fsh.mjs" <generated-json> <project-root>
+   ```
+
+4. Search `input/fsh` for matching declarations:
    - `Profile: <name-or-id>`
    - `Extension: <name-or-id>`
    - `Instance: <name-or-id>`
@@ -37,10 +43,10 @@ When a validation error points to `fsh-generated/resources/*.json`:
    - `CodeSystem: <name-or-id>`
    - `Logical: <name-or-id>`
    - Canonical URL fragments and aliases.
-4. Map element errors to FSH rules by path, slice name, caret path, invariant id, or instance rule.
-5. Make only mechanical FSH fixes when the intent is clear.
-6. Run `sushi .` or the repository's SUSHI script.
-7. Re-run Records/validator on regenerated output.
+5. Map element errors to FSH rules by path, slice name, caret path, invariant id, or instance rule.
+6. Make only mechanical FSH fixes when the intent is clear.
+7. Run `sushi .` or the repository's SUSHI script.
+8. Re-run Records/validator on regenerated output.
 
 If no FSH source exists, generated JSON may be the only local artifact, but still note that the durable source is unknown.
 

@@ -39,3 +39,4 @@ Stop patching and report the blocker when:
 - Ask before installing any validator, downloading packages from private feeds, contacting terminology servers, or calling hosted Records/API/FHIR endpoints.
 - Do not paste full Patient resources, identifiers, addresses, telecoms, notes, or complete Bundles into summaries unless the user explicitly asks and it is necessary.
 - If a URL points to a FHIR server or resource, ask before fetching it because access logs and response bodies may expose PHI.
+- Use `scripts/redact-fhir-summary.mjs` for concise local summaries when the resource may contain PHI.

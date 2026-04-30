@@ -5,7 +5,7 @@ argument-hint: "[resource-directory]"
 
 # Initialize Records FHIR Validation CI
 
-Use `/records:fhir-validation` and read `skills/fhir-validation/references/quality-rules.md` when needed.
+Use `/records:fhir-validation` and read `skills/fhir-validation/references/quality-rules.md` plus `skills/fhir-validation/references/ci-templates.md` when needed.
 
 Target resource directory: `$ARGUMENTS` or infer from detector output.
 

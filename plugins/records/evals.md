@@ -152,6 +152,8 @@ Expected behavior:
 
 - Uses `skills/fhir-validation/scripts/detect-fhir-project.mjs`.
 - Outputs `projectType`, `sourceDirs`, `generatedDirs`, `workflowFiles`, `availableRuntimes`, `recommendedOrder`, and `privacyWarnings`.
+- Uses `schemaVersion: 1` and marks missing local commands as `available: false` with `reason: "not_found"`.
+- Includes FHIR version, package dependency, resource inventory, `meta.profile`, and privacy risk signals when present.
 - Recommends source-first FSH inspection before generated JSON edits.
 - Does not install SUSHI, Java validator, Firely, or HAPI without consent.
 
@@ -168,6 +170,7 @@ Expected behavior:
 - Treats the URL as a possible FHIR server/resource access.
 - Asks for explicit consent before fetching it.
 - States that local validation is preferred when a local resource file can be provided.
+- Uses `redact-fhir-summary.mjs` or equivalent minimization for PHI-sensitive local summaries.
 - Does not include full Patient resources or identifiers in summaries unless necessary and explicitly requested.
 
 ## 11. CI Generation
@@ -200,3 +203,19 @@ Expected behavior:
 - Explains `code-invalid` as terminology or required-code failure.
 - Separates safe mechanical fixes from domain-required terminology decisions.
 - Notes that `code-invalid`, `profile-unknown`, `not-found`, `processing`, and `slicing` can indicate package, terminology, or generated-artifact setup problems.
+
+## 13. Executable Fixture Harness
+
+Command:
+
+```bash
+npm test
+```
+
+Expected behavior:
+
+- Runs the plugin structure smoke test.
+- Runs fixture evals for project detection, generated-to-FSH mapping, and PHI-safe summaries.
+- Fails if manifest/package versions diverge.
+- Fails if command/agent/skill frontmatter is missing or malformed.
+- Fails if detector marks missing commands as available when `PATH` is empty.

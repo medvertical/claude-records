@@ -36,6 +36,8 @@ records --api-url "$RECORDS_API_URL" --auth-token "$RECORDS_API_KEY" validate-fi
 
 Add explicit install steps when the repository does not already provide `records`. Do not assume a global CLI in CI. Do not claim CI is profile-aware unless the configured runtime loads profiles, packages, and terminology context.
 
+For concrete GitHub Actions snippets, load [ci-templates.md](ci-templates.md).
+
 ## Review Output
 
 For each proposed rule include:

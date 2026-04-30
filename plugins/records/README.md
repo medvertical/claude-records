@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="./assets/records-signet.svg" alt="Records" width="96" height="96">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/records-signet-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./assets/records-signet.svg">
+    <img src="./assets/records-signet.svg" alt="Records" width="96" height="96">
+  </picture>
 </p>
 
 # Records for Claude Code
@@ -7,6 +11,8 @@
 FHIR validation and data-quality workflow skills for Claude Code.
 
 Records helps FHIR developers, IG authors, and AI agents validate FHIR JSON, explain validation issues, add CI checks, and run validate-patch-revalidate workflows without sending patient data to an external service by default.
+
+Learn more at [medvertical.com](https://medvertical.com) and [medvertical.com/records](https://medvertical.com/records).
 
 ## Install
 
@@ -72,7 +78,7 @@ Run plugin checks from this `claude-records` repository root:
 
 ```bash
 npx --yes @anthropic-ai/claude-code plugin validate .
-node plugins/records/scripts/smoke-test.mjs
+npm test
 ```
 
-If `package.json` is present, `npm test` runs the same smoke test. Prompt-level release checks live in [evals.md](./evals.md). Results are in [eval-results/](./eval-results/).
+`npm test` runs the plugin smoke test and fixture eval harness. Prompt-level release checks live in [evals.md](./evals.md). Results are in [eval-results/](./eval-results/).

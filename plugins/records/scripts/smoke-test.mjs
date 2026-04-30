@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import { constants } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 const repo = path.resolve(new URL("../../..", import.meta.url).pathname);
@@ -40,13 +41,43 @@ function rel(file) {
   return path.relative(repo, file);
 }
 
+function parseFrontmatter(text) {
+  const match = text.match(/^---\n([\s\S]*?)\n---\n/);
+  if (!match) return null;
+  const data = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const scalar = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (scalar) data[scalar[1]] = scalar[2].trim();
+  }
+  return data;
+}
+
+function runJson(script, args, env = process.env) {
+  const result = spawnSync(process.execPath, [script, ...args], {
+    cwd: repo,
+    encoding: "utf8",
+    env,
+  });
+  if (result.status !== 0) {
+    errors.push(`${rel(script)} failed: ${result.stderr || result.stdout}`);
+    return null;
+  }
+  try {
+    return JSON.parse(result.stdout);
+  } catch (error) {
+    errors.push(`${rel(script)} did not output JSON: ${error.message}`);
+    return null;
+  }
+}
+
 const marketplace = await readJson(path.join(repo, ".claude-plugin/marketplace.json"));
 const manifest = await readJson(path.join(plugin, ".claude-plugin/plugin.json"));
+const packageJson = await readJson(path.join(repo, "package.json"));
 if (marketplace?.name !== "medvertical") errors.push("Marketplace name must remain medvertical.");
 if (manifest?.name !== "records") errors.push("Plugin name must remain records.");
 if (marketplace?.plugins?.[0]?.name !== "records") errors.push("Marketplace plugin entry must remain records.");
 if (marketplace?.plugins?.[0]?.version !== manifest?.version) errors.push("Marketplace and plugin versions differ.");
-if (manifest?.version !== "0.2.0") errors.push("Expected plugin version 0.2.0.");
+if (packageJson?.version !== manifest?.version) errors.push("Root package version must match plugin version.");
 
 const required = [
   "README.md",
@@ -56,7 +87,10 @@ const required = [
   "plugins/records/skills/fhir-validation/references/repair-policy.md",
   "plugins/records/skills/fhir-validation/references/operationoutcome-map.md",
   "plugins/records/skills/fhir-validation/references/quality-rules.md",
+  "plugins/records/skills/fhir-validation/references/ci-templates.md",
   "plugins/records/skills/fhir-validation/scripts/detect-fhir-project.mjs",
+  "plugins/records/skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
+  "plugins/records/skills/fhir-validation/scripts/redact-fhir-summary.mjs",
   "plugins/records/commands/doctor.md",
   "plugins/records/commands/init-ci.md",
   "plugins/records/commands/explain-outcome.md",
@@ -71,8 +105,8 @@ for (const file of required) {
   if (!(await exists(path.join(repo, file)))) errors.push(`Missing required file: ${file}`);
 }
 
-for (const file of await walk(plugin)) {
-  if (!file.endsWith(".md")) continue;
+const markdownFiles = (await walk(plugin)).filter((file) => file.endsWith(".md"));
+for (const file of markdownFiles) {
   const text = await readFile(file, "utf8");
   for (const match of text.matchAll(/\]\(([^)]+)\)/g)) {
     const target = match[1];
@@ -84,6 +118,28 @@ for (const file of await walk(plugin)) {
   }
 }
 
+for (const file of [
+  ...await walk(path.join(plugin, "commands")),
+  ...await walk(path.join(plugin, "agents")),
+  path.join(plugin, "skills/fhir-validation/SKILL.md"),
+]) {
+  if (!file.endsWith(".md")) continue;
+  const text = await readFile(file, "utf8");
+  const frontmatter = parseFrontmatter(text);
+  if (!frontmatter) errors.push(`Missing frontmatter: ${rel(file)}`);
+  if (file.includes("/commands/") && !frontmatter?.description) errors.push(`Command missing description: ${rel(file)}`);
+  if (file.includes("/agents/")) {
+    const allowed = new Set(["name", "description", "model", "effort", "maxTurns", "disallowedTools", "tools", "skills"]);
+    for (const key of Object.keys(frontmatter || {})) {
+      if (!allowed.has(key)) errors.push(`Unexpected agent frontmatter key ${key}: ${rel(file)}`);
+    }
+    if (!frontmatter?.name || !frontmatter?.description) errors.push(`Agent missing name or description: ${rel(file)}`);
+  }
+  if (file.endsWith("SKILL.md") && (!frontmatter?.name || !frontmatter?.description || !frontmatter?.version)) {
+    errors.push(`Skill missing required frontmatter: ${rel(file)}`);
+  }
+}
+
 for (const jsonFile of (await walk(path.join(plugin, "fixtures"))).filter((file) => file.endsWith(".json"))) {
   await readJson(jsonFile);
 }
@@ -92,12 +148,44 @@ const skillText = await readFile(path.join(plugin, "skills/fhir-validation/SKILL
 const skillLines = skillText.trim().split(/\r?\n/).length;
 if (skillLines > 90) errors.push(`SKILL.md should stay concise; found ${skillLines} lines.`);
 
-try {
-  const script = path.join(plugin, "skills/fhir-validation/scripts/detect-fhir-project.mjs");
-  const scriptStat = await stat(script);
-  if (!scriptStat.isFile()) errors.push("Detector script is not a file.");
-} catch (error) {
-  errors.push(error.message);
+for (const script of [
+  "plugins/records/skills/fhir-validation/scripts/detect-fhir-project.mjs",
+  "plugins/records/skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
+  "plugins/records/skills/fhir-validation/scripts/redact-fhir-summary.mjs",
+]) {
+  const scriptStat = await stat(path.join(repo, script));
+  if (!scriptStat.isFile()) errors.push(`Script is not a file: ${script}`);
+}
+
+const detector = path.join(plugin, "skills/fhir-validation/scripts/detect-fhir-project.mjs");
+const miniIg = path.join(plugin, "fixtures/mini-ig");
+const detection = runJson(detector, [miniIg]);
+if (detection) {
+  if (detection.schemaVersion !== 1) errors.push("Detector schemaVersion must be 1.");
+  if (detection.projectType !== "fsh-ig") errors.push("mini-ig should detect as fsh-ig.");
+  if (!detection.sourceDirs.includes("input/fsh")) errors.push("Detector missed input/fsh.");
+  if (!detection.generatedDirs.includes("fsh-generated/resources")) errors.push("Detector missed fsh-generated/resources.");
+  if (!detection.workflowFiles.includes("sushi-config.yaml")) errors.push("Detector missed sushi-config.yaml.");
+  if (!detection.fhirVersions.includes("4.0.1")) errors.push("Detector missed FHIR version 4.0.1.");
+  if (detection.resourceInventory.byResourceType.Observation !== 2) errors.push("Detector should count two Observation fixtures.");
+}
+
+const noPathDetection = runJson(detector, [miniIg], { ...process.env, PATH: "" });
+if (noPathDetection) {
+  for (const key of ["recordsCli", "sushi", "java", "firelyTerminal", "hapi"]) {
+    if (noPathDetection.availableRuntimes[key].available) errors.push(`${key} should be unavailable with empty PATH.`);
+  }
+}
+
+const mapper = path.join(plugin, "skills/fhir-validation/scripts/map-generated-to-fsh.mjs");
+const mapping = runJson(mapper, [
+  path.join(miniIg, "fsh-generated/resources/Observation-MiniObservationMissingCode.json"),
+  miniIg,
+]);
+if (mapping) {
+  if (!mapping.candidates.some((candidate) => candidate.file === "input/fsh/profiles.fsh")) {
+    errors.push("FSH mapper should find input/fsh/profiles.fsh.");
+  }
 }
 
 if (errors.length) {
