@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/records-signet.svg" alt="Records" width="96" height="96">
+</p>
+
 # Records for Claude Code
 
 FHIR validation and data-quality workflow skills for Claude Code.
