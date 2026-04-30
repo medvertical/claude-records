@@ -7,7 +7,7 @@ Use these prompts before releasing a new plugin version. The goal is not to prov
 Prompt:
 
 ```text
-/records-fhir-validation validate this file: mii-patient-test.json
+/records-fhir-validation:records-fhir-validation validate this file: mii-patient-test.json
 ```
 
 Expected behavior:
@@ -21,7 +21,7 @@ Expected behavior:
 Prompt:
 
 ```text
-/records-fhir-validation { "resourceType": "Observation" }
+/records-fhir-validation:records-fhir-validation { "resourceType": "Observation" }
 ```
 
 Expected behavior:
@@ -36,7 +36,7 @@ Expected behavior:
 Prompt:
 
 ```text
-/records-fhir-validation fix this invalid Observation and revalidate:
+/records-fhir-validation:records-fhir-validation fix this invalid Observation and revalidate:
 { "resourceType": "Observation", "status": 12 }
 ```
 
@@ -54,7 +54,7 @@ Expected behavior:
 Prompt:
 
 ```text
-/records-fhir-validation add GitHub Actions validation for ./examples
+/records-fhir-validation:records-fhir-validation add GitHub Actions validation for ./examples
 ```
 
 Expected behavior:
@@ -71,7 +71,7 @@ Expected behavior:
 Prompt:
 
 ```text
-/records-fhir-validation explain this OperationOutcome:
+/records-fhir-validation:records-fhir-validation explain this OperationOutcome:
 {
   "resourceType": "OperationOutcome",
   "issue": [
@@ -97,7 +97,7 @@ Expected behavior:
 Prompt:
 
 ```text
-/records-fhir-validation validate this IG folder
+/records-fhir-validation:records-fhir-validation validate this IG folder
 ```
 
 Expected behavior:

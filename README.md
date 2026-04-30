@@ -1,31 +1,40 @@
 # Records FHIR Validation for Claude Code
 
-Claude Code skill for validating FHIR resources with Records.
+Local-first FHIR validation and data-quality workflows for Claude Code.
+
+Records FHIR Validation helps FHIR developers, IG authors, and AI agents validate FHIR JSON, explain validation issues, add CI checks, and run a validate-patch-revalidate loop without sending patient data to an external service by default.
 
 ## Install
-
-From a published marketplace repository:
 
 ```bash
 claude plugin marketplace add medvertical/claude-records
 claude plugin install records-fhir-validation@records
 ```
 
-For local development from the Records repository:
+Invoke the skill:
 
-```bash
-claude plugin marketplace add .
-claude plugin install records-fhir-validation@records
+```text
+/records-fhir-validation:records-fhir-validation validate ./examples
+```
+
+## Example Prompts
+
+```text
+/records-fhir-validation:records-fhir-validation validate patient.json
+/records-fhir-validation:records-fhir-validation { "resourceType": "Observation" }
+/records-fhir-validation:records-fhir-validation explain this OperationOutcome: ...
+/records-fhir-validation:records-fhir-validation add GitHub Actions validation for ./examples
+/records-fhir-validation:records-fhir-validation validate this IG folder
 ```
 
 ## What It Does
 
 The skill guides Claude through four validation modes:
 
-1. Records MCP tools, when available.
-2. A user-configured Records API via `RECORDS_API_URL`.
-3. The local `records validate-file` CLI.
-4. A clearly labeled structural fallback when no Records runtime is available.
+1. **Records MCP tools**, when available.
+2. **Records API**, when `RECORDS_API_URL` is configured.
+3. **Records CLI**, using `records validate-file`.
+4. **Structural fallback**, clearly labeled when no Records runtime is available.
 
 The local CLI fallback uses Records' packaged FHIR R4 structural schema for resource types, required fields, unknown fields, cardinality, primitive types, choice fields, and simple backbone children. It does not replace profile, terminology, invariant, reference, metadata, advisor-rule, anomaly, or evidence-report validation.
 
@@ -33,14 +42,17 @@ The local CLI fallback uses Records' packaged FHIR R4 structural schema for reso
 
 Records is designed as an agent-friendly FHIR quality oracle:
 
-- Local-first Node/TypeScript workflow, with no JVM required for the CLI fallback.
-- Structured issue data for Claude to group, explain, patch, and revalidate.
-- Optional MCP tools for direct agent calls instead of parsing shell output.
-- Optional hosted Records API for full validation and evidence workflows.
+- **Local-first** Node/TypeScript workflow, with no JVM required for local structural checks.
+- **Privacy-first** instructions: do not send clinical or patient data externally unless explicitly configured or consented.
+- **Agent repair loop**: validate, group issues, patch safe mechanical problems, revalidate.
+- **MCP-ready**: direct agent tool calls when Records MCP is configured.
+- **Data-quality scope** beyond base conformance: advisor rules, anomaly detection, evidence reports, run comparison, and dataset quality workflows through full Records runtimes.
+
+## Boundary
+
+Local structural mode is useful for fast feedback, but it is not full conformance validation. Full IG/profile validation requires Records MCP/API/engine mode or another configured profile-aware validator.
 
 ## Privacy
-
-The skill is local-first. It instructs Claude not to send clinical or patient data to external services unless the user has explicitly configured that service or clearly consented.
 
 See [PRIVACY.md](./PRIVACY.md) for the data-handling policy.
 
@@ -52,6 +64,4 @@ From the Records repository:
 npm run test:claude-plugin
 ```
 
-This validates the plugin manifests, skill content, and local Records CLI path.
-
-Prompt-level release checks live in [evals.md](./evals.md). Results for v0.1.1 are in [eval-results/v0.1.1.md](./eval-results/v0.1.1.md).
+Prompt-level release checks live in [evals.md](./evals.md). Results are in [eval-results/](./eval-results/).

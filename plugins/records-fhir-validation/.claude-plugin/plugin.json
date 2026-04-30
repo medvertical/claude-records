@@ -1,7 +1,7 @@
 {
   "name": "records-fhir-validation",
-  "description": "Records FHIR validation skill for Claude Code.",
-  "version": "0.1.1",
+  "description": "Local-first FHIR validation and data-quality workflow skill for Claude Code.",
+  "version": "0.1.2",
   "author": {
     "name": "MedVertical"
   },
