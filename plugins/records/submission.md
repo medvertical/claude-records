@@ -14,7 +14,7 @@ https://github.com/medvertical/claude-records
 
 ```bash
 claude plugin marketplace add medvertical/claude-records
-claude plugin install records@records
+claude plugin install records@medvertical
 ```
 
 ## Invocation

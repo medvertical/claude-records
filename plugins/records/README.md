@@ -12,7 +12,7 @@ Records helps FHIR developers, IG authors, and AI agents validate FHIR JSON, exp
 
 ```bash
 claude plugin marketplace add medvertical/claude-records
-claude plugin install records@records
+claude plugin install records@medvertical
 ```
 
 Invoke the FHIR validation skill:
@@ -55,20 +55,6 @@ The local CLI fallback uses Records' packaged FHIR R4 structural schema for reso
 - **Agent repair loop**: validate, group issues, patch safe mechanical problems, revalidate.
 - **MCP-ready**: direct agent tool calls when Records MCP is configured.
 - **Data-quality scope** beyond base conformance: advisor rules, anomaly detection, evidence reports, run comparison, and dataset quality workflows through full Records runtimes.
-
-## Compatibility
-
-The old plugin invocation is deprecated:
-
-```text
-/records-fhir-validation:records-fhir-validation
-```
-
-Use this instead:
-
-```text
-/records:fhir-validation
-```
 
 ## Privacy
 
