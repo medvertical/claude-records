@@ -53,3 +53,5 @@ npm run test:claude-plugin
 ```
 
 This validates the plugin manifests, skill content, and local Records CLI path.
+
+Prompt-level release checks live in [evals.md](./evals.md). Results for v0.1.1 are in [eval-results/v0.1.1.md](./eval-results/v0.1.1.md).

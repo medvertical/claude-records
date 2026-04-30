@@ -12,7 +12,7 @@
       "source": "./plugins/records-fhir-validation",
       "description": "Validate FHIR resources and explain data quality issues with Records.",
       "category": "development",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "MedVertical"
       },

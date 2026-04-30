@@ -8,7 +8,7 @@ By default, the skill instructs Claude to use local project files, local Records
 
 ## Hosted API Mode
 
-Hosted validation is opt-in. The skill uses a Records API only when `RECORDS_API_URL` is configured by the user or project. Authentication is provided through user-managed configuration such as `RECORDS_API_KEY`, `RECORDS_AUTH_TOKEN`, or the Records CLI config.
+Hosted validation is opt-in. The skill uses a Records API only when `RECORDS_API_URL` is configured by the user or project. Authentication is provided through user-managed configuration such as `RECORDS_AUTH_TOKEN`, `RECORDS_API_KEY` passed as a CLI `--auth-token`, or the Records CLI config.
 
 ## Structural Fallback
 
