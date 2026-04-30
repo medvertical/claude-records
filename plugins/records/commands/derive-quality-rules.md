@@ -9,6 +9,12 @@ Use `/records:fhir-validation` and read `skills/fhir-validation/references/quali
 
 Target: `$ARGUMENTS` or directories reported by the detector.
 
+When a local directory is available, prefer:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/fhir-validation/scripts/derive-quality-rules.mjs" "$ARGUMENTS"
+```
+
 Derive proposed, reviewable quality rules from local evidence:
 
 1. Sample resources by type, profile, and directory.

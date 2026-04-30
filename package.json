@@ -1,9 +1,10 @@
 {
   "name": "claude-records",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
-    "test": "node plugins/records/scripts/smoke-test.mjs && node plugins/records/scripts/eval-fixtures.mjs"
+    "test": "node plugins/records/scripts/smoke-test.mjs && node plugins/records/scripts/eval-fixtures.mjs",
+    "release:check": "node plugins/records/scripts/release-check.mjs"
   }
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 const repo = path.resolve(new URL("../../..", import.meta.url).pathname);
@@ -24,6 +25,47 @@ function runJson(script, args, input = null) {
   }
 }
 
+async function snapshot(name) {
+  return JSON.parse(await readFile(path.join(plugin, "eval-snapshots", name), "utf8"));
+}
+
+function stableDetection(value) {
+  return {
+    schemaVersion: value.schemaVersion,
+    projectType: value.projectType,
+    sourceDirs: value.sourceDirs,
+    generatedDirs: value.generatedDirs,
+    workflowFiles: value.workflowFiles,
+    fhirVersions: value.fhirVersions,
+    resourceTypes: value.resourceInventory.byResourceType,
+    metaProfiles: value.resourceInventory.metaProfiles,
+    privacyRiskLevel: value.privacyRiskLevel,
+  };
+}
+
+function stableMapping(value) {
+  return {
+    schemaVersion: value.schemaVersion,
+    generatedFile: value.generatedFile,
+    resourceType: value.resource.resourceType,
+    id: value.resource.id,
+    topCandidate: value.candidates[0]?.file,
+    topCandidateReasons: value.candidates[0]?.reasons || [],
+  };
+}
+
+function stableRedaction(value) {
+  return {
+    schemaVersion: value.schemaVersion,
+    resourceType: value.resourceType,
+    resourceTypes: value.resourceTypes,
+    identifierSystems: value.identifierSystems,
+    identifierValuesRedacted: value.identifierValuesRedacted,
+    idsRedacted: value.idsRedacted,
+    privacyRiskLevel: value.privacyRiskLevel,
+  };
+}
+
 const detector = path.join(plugin, "skills/fhir-validation/scripts/detect-fhir-project.mjs");
 const mapper = path.join(plugin, "skills/fhir-validation/scripts/map-generated-to-fsh.mjs");
 const redactor = path.join(plugin, "skills/fhir-validation/scripts/redact-fhir-summary.mjs");
@@ -40,6 +82,9 @@ if (detection) {
   ];
   if (expected.some((value) => !value)) failures.push("Detector fixture expectations failed.");
 }
+if (detection && JSON.stringify(stableDetection(detection), null, 2) !== JSON.stringify(await snapshot("detector-mini-ig.json"), null, 2)) {
+  failures.push("Detector snapshot changed.");
+}
 
 const mapping = runJson(mapper, [
   path.join(miniIg, "fsh-generated/resources/Observation-MiniObservationMissingCode.json"),
@@ -49,11 +94,17 @@ if (mapping) {
   if (mapping.resource.resourceType !== "Observation") failures.push("Mapper did not read generated Observation.");
   if (!mapping.candidates[0]?.reasons?.length) failures.push("Mapper did not explain candidate reasons.");
 }
+if (mapping && JSON.stringify(stableMapping(mapping), null, 2) !== JSON.stringify(await snapshot("generated-to-fsh.json"), null, 2)) {
+  failures.push("Generated-to-FSH snapshot changed.");
+}
 
 const summary = runJson(redactor, [path.join(plugin, "fixtures/patient-with-phi.json")]);
 if (summary) {
-  if (summary.id !== "[redacted]") failures.push("Redactor did not redact Patient id.");
+  if (summary.idsRedacted !== 1) failures.push("Redactor did not redact Patient id.");
   if (JSON.stringify(summary).includes("Jane")) failures.push("Redactor leaked patient name.");
+}
+if (summary && JSON.stringify(stableRedaction(summary), null, 2) !== JSON.stringify(await snapshot("redacted-patient.json"), null, 2)) {
+  failures.push("Redacted Patient snapshot changed.");
 }
 
 const outcome = runJson(redactor, [path.join(plugin, "fixtures/operationoutcome-required.json")]);

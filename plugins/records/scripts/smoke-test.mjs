@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { access, readFile, readdir, stat } from "node:fs/promises";
+import { access, chmod, mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import os from "node:os";
 
 const repo = path.resolve(new URL("../../..", import.meta.url).pathname);
 const plugin = path.join(repo, "plugins/records");
@@ -91,6 +92,10 @@ const required = [
   "plugins/records/skills/fhir-validation/scripts/detect-fhir-project.mjs",
   "plugins/records/skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
   "plugins/records/skills/fhir-validation/scripts/redact-fhir-summary.mjs",
+  "plugins/records/skills/fhir-validation/scripts/explain-operationoutcome.mjs",
+  "plugins/records/skills/fhir-validation/scripts/derive-quality-rules.mjs",
+  "plugins/records/skills/fhir-validation/scripts/generate-ci.mjs",
+  "plugins/records/skills/fhir-validation/scripts/map-fhir-expression.mjs",
   "plugins/records/commands/doctor.md",
   "plugins/records/commands/init-ci.md",
   "plugins/records/commands/explain-outcome.md",
@@ -152,6 +157,10 @@ for (const script of [
   "plugins/records/skills/fhir-validation/scripts/detect-fhir-project.mjs",
   "plugins/records/skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
   "plugins/records/skills/fhir-validation/scripts/redact-fhir-summary.mjs",
+  "plugins/records/skills/fhir-validation/scripts/explain-operationoutcome.mjs",
+  "plugins/records/skills/fhir-validation/scripts/derive-quality-rules.mjs",
+  "plugins/records/skills/fhir-validation/scripts/generate-ci.mjs",
+  "plugins/records/skills/fhir-validation/scripts/map-fhir-expression.mjs",
 ]) {
   const scriptStat = await stat(path.join(repo, script));
   if (!scriptStat.isFile()) errors.push(`Script is not a file: ${script}`);
@@ -177,6 +186,26 @@ if (noPathDetection) {
   }
 }
 
+const fakeBin = await mkdtemp(path.join(os.tmpdir(), "records-plugin-tools-"));
+for (const [name, version] of Object.entries({
+  records: "records 9.9.9",
+  sushi: "SUSHI v9.9.9",
+  fhir: "Firely Terminal 9.9.9",
+  "hapi-fhir-cli": "HAPI FHIR CLI 9.9.9",
+})) {
+  const file = path.join(fakeBin, name);
+  await writeFile(file, `#!/bin/sh\necho "${version}"\n`, "utf8");
+  await chmod(file, 0o755);
+}
+const mockedDetection = runJson(detector, [miniIg], { ...process.env, PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}` });
+if (mockedDetection) {
+  if (!mockedDetection.availableRuntimes.recordsCli.available) errors.push("Mock records CLI should be available.");
+  if (!mockedDetection.availableRuntimes.sushi.available) errors.push("Mock SUSHI should be available.");
+  if (!mockedDetection.availableRuntimes.firelyTerminal.available) errors.push("Mock Firely Terminal should be available.");
+  if (!mockedDetection.availableRuntimes.hapi.available) errors.push("Mock HAPI should be available.");
+  if (!mockedDetection.availableRuntimes.recordsCli.version.includes("9.9.9")) errors.push("Mock records version not captured.");
+}
+
 const mapper = path.join(plugin, "skills/fhir-validation/scripts/map-generated-to-fsh.mjs");
 const mapping = runJson(mapper, [
   path.join(miniIg, "fsh-generated/resources/Observation-MiniObservationMissingCode.json"),
@@ -187,6 +216,17 @@ if (mapping) {
     errors.push("FSH mapper should find input/fsh/profiles.fsh.");
   }
 }
+
+const explainer = path.join(plugin, "skills/fhir-validation/scripts/explain-operationoutcome.mjs");
+const explanation = runJson(explainer, [path.join(plugin, "fixtures/operationoutcome-required.json")]);
+if (explanation) {
+  if (explanation.issueCount !== 2) errors.push("OperationOutcome explainer should report two issues.");
+  if (!explanation.issues.some((issue) => issue.code === "required")) errors.push("OperationOutcome explainer missed required issue.");
+}
+
+const expressionMapper = path.join(plugin, "skills/fhir-validation/scripts/map-fhir-expression.mjs");
+const pointer = runJson(expressionMapper, ["Observation.category[0].coding[0].code"]);
+if (pointer?.jsonPointer !== "/category/0/coding/0/code") errors.push("FHIR expression mapper returned unexpected pointer.");
 
 if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join("\n"));

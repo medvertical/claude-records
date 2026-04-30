@@ -219,3 +219,46 @@ Expected behavior:
 - Fails if manifest/package versions diverge.
 - Fails if command/agent/skill frontmatter is missing or malformed.
 - Fails if detector marks missing commands as available when `PATH` is empty.
+
+## 14. Tool Mock Runtime Detection
+
+Command:
+
+```bash
+npm test
+```
+
+Expected behavior:
+
+- Creates temporary fake `records`, `sushi`, `fhir`, and `hapi-fhir-cli` binaries.
+- Detector marks them as available.
+- Detector captures version output and executable path.
+
+## 15. Scripted OperationOutcome and Path Mapping
+
+Commands:
+
+```bash
+node plugins/records/skills/fhir-validation/scripts/explain-operationoutcome.mjs plugins/records/fixtures/operationoutcome-required.json
+node plugins/records/skills/fhir-validation/scripts/map-fhir-expression.mjs "Observation.category[0].coding[0].code"
+```
+
+Expected behavior:
+
+- OperationOutcome output includes `issueCount`, severity counts, safe fixability, domain-input needs, and setup/package signal.
+- Expression mapper outputs `/category/0/coding/0/code` with a caveat about predicates and slices.
+
+## 16. Release Check
+
+Command:
+
+```bash
+npm run release:check
+```
+
+Expected behavior:
+
+- Runs `npm test`.
+- Runs Claude plugin validation for marketplace and plugin manifests.
+- Confirms version sync and current eval-result file.
+- Runs live `claude plugin marketplace update` and `claude plugin update` only when `claude` is available in `PATH`; otherwise reports that the live update check was skipped.

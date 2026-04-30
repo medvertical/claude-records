@@ -1,7 +1,7 @@
 ---
 name: fhir-validation
 description: This skill should be used when the user asks to validate FHIR resources, check FHIR JSON, review Implementation Guide examples, validate AI-created FHIR output, explain validation issues, generate CI validation steps, derive FHIR data-quality rules, or run a validate-patch-revalidate loop with Records.
-version: 0.2.1
+version: 0.3.0
 argument-hint: "[file-or-directory-or-json]"
 allowed-tools: [Read, Glob, Grep, Bash, Edit, Write, MultiEdit]
 ---
@@ -56,6 +56,15 @@ For PHI-sensitive summaries, prefer:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/redact-fhir-summary.mjs" <resource-json>
+```
+
+For OperationOutcome JSON, quality-rule derivation, CI YAML, or FHIR expression mapping, use the matching local helper script before free-form reasoning:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/explain-operationoutcome.mjs" <operationoutcome-json>
+node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/derive-quality-rules.mjs" <resource-directory>
+node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/generate-ci.mjs" --dir <resource-directory>
+node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/map-fhir-expression.mjs" "Observation.category[0].coding[0].code"
 ```
 
 ## Task References

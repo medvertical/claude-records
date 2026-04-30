@@ -9,6 +9,12 @@ Use `/records:fhir-validation` and read `skills/fhir-validation/references/opera
 
 Input: `$ARGUMENTS`, pasted JSON, or a file path.
 
+When a file path is available, prefer:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/fhir-validation/scripts/explain-operationoutcome.mjs" "$ARGUMENTS"
+```
+
 Explain issues by severity and expression/path. For each issue:
 
 1. Translate the validator message into plain language.

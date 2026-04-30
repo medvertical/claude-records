@@ -23,3 +23,7 @@ For real patient data, prefer one of:
 - A self-hosted Records API inside the user's approved environment.
 
 Do not paste real patient data into public issue trackers, public prompts, or hosted services unless your organization has approved that workflow.
+
+## Redacted Summaries
+
+The plugin includes `skills/fhir-validation/scripts/redact-fhir-summary.mjs` to summarize Patient-like resources, Bundles, identifiers, references, and OperationOutcomes without printing full identifiers or demographics. Use it before sharing validation context that may contain PHI.

@@ -9,6 +9,12 @@ Use `/records:fhir-validation` and read `skills/fhir-validation/references/quali
 
 Target resource directory: `$ARGUMENTS` or infer from detector output.
 
+Use this helper for a first draft when the target repository does not already have a better workflow pattern:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/fhir-validation/scripts/generate-ci.mjs" --dir "$ARGUMENTS"
+```
+
 Steps:
 
 1. Run the detector script to find source directories, generated directories, package scripts, and existing `.github/workflows`.

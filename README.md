@@ -72,6 +72,10 @@ The Records Engine, CLI, API, and MCP server live in the Records main repository
 
 See [PRIVACY.md](./PRIVACY.md) for the data-handling policy.
 
+## Compatibility
+
+See [plugins/records/docs/compatibility.md](./plugins/records/docs/compatibility.md) for how Records CLI/API/MCP, SUSHI, IG Publisher, Firely Terminal, HAPI, and fallback validation are detected and bounded.
+
 ## Development
 
 Run plugin checks from this `claude-records` repository:
@@ -79,6 +83,7 @@ Run plugin checks from this `claude-records` repository:
 ```bash
 npx --yes @anthropic-ai/claude-code plugin validate .
 npm test
+npm run release:check
 ```
 
 `npm test` runs the plugin smoke test and fixture eval harness. Prompt-level release checks live in [plugins/records/evals.md](./plugins/records/evals.md). Results are in [plugins/records/eval-results/](./plugins/records/eval-results/).
