@@ -8,11 +8,30 @@
   },
   "plugins": [
     {
+      "name": "records",
+      "source": "./plugins/records",
+      "description": "FHIR validation and data-quality workflows with Records.",
+      "category": "development",
+      "version": "0.2.0",
+      "author": {
+        "name": "MedVertical"
+      },
+      "homepage": "https://github.com/medvertical/claude-records",
+      "keywords": [
+        "fhir",
+        "hl7",
+        "validation",
+        "healthcare",
+        "mcp",
+        "records"
+      ]
+    },
+    {
       "name": "records-fhir-validation",
       "source": "./plugins/records-fhir-validation",
-      "description": "Validate FHIR resources and explain data quality issues with Records.",
+      "description": "Deprecated compatibility plugin. Use records@records and /records:fhir-validation.",
       "category": "development",
-      "version": "0.1.2",
+      "version": "0.2.0",
       "author": {
         "name": "MedVertical"
       },

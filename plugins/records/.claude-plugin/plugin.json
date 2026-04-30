@@ -1,6 +1,6 @@
 {
-  "name": "records-fhir-validation",
-  "description": "Deprecated compatibility plugin. Use records@records and /records:fhir-validation.",
+  "name": "records",
+  "description": "FHIR validation and data-quality workflow skills for Claude Code.",
   "version": "0.2.0",
   "author": {
     "name": "MedVertical"
@@ -10,6 +10,7 @@
   "license": "MIT",
   "keywords": [
     "fhir",
+    "hl7",
     "validation",
     "healthcare",
     "mcp",

@@ -1,4 +1,23 @@
-# Records FHIR Validation for Claude Code
+# Records FHIR Validation for Claude Code (Deprecated Namespace)
+
+This plugin remains available for compatibility. New installs should use the canonical Records plugin:
+
+```bash
+claude plugin marketplace add medvertical/claude-records
+claude plugin install records@records
+```
+
+Invoke:
+
+```text
+/records:fhir-validation validate ./examples
+```
+
+Deprecated invocation:
+
+```text
+/records-fhir-validation:records-fhir-validation
+```
 
 Local-first FHIR validation and data-quality workflows for Claude Code.
 

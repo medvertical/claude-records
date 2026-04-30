@@ -1,5 +1,5 @@
 ---
-name: records-fhir-validation
+name: fhir-validation
 description: This skill should be used when the user asks to validate FHIR resources, check FHIR JSON, review Implementation Guide examples, validate AI-created FHIR output, explain validation issues, generate CI validation steps, or run a validate-patch-revalidate loop with Records.
 version: 0.2.0
 argument-hint: "[file-or-directory-or-json]"
@@ -7,12 +7,6 @@ allowed-tools: [Read, Glob, Grep, Bash, Edit, Write, MultiEdit]
 ---
 
 # Records FHIR Validation
-
-This plugin invocation is deprecated. Prefer the canonical Records plugin:
-
-```text
-/records:fhir-validation
-```
 
 Validate FHIR resources with Records. Prefer local or user-configured execution. Never send clinical or patient data to an external service unless the user has explicitly configured that service or has clearly consented.
 
