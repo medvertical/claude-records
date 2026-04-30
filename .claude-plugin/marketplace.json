@@ -1,0 +1,29 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "records",
+  "description": "Claude Code plugins for Records FHIR validation and data quality workflows.",
+  "owner": {
+    "name": "MedVertical",
+    "email": "hello@medvertical.com"
+  },
+  "plugins": [
+    {
+      "name": "records-fhir-validation",
+      "source": "./plugins/records-fhir-validation",
+      "description": "Validate FHIR resources and explain data quality issues with Records.",
+      "category": "development",
+      "version": "0.1.0",
+      "author": {
+        "name": "MedVertical"
+      },
+      "homepage": "https://github.com/medvertical/claude-records",
+      "keywords": [
+        "fhir",
+        "validation",
+        "healthcare",
+        "mcp",
+        "records"
+      ]
+    }
+  ]
+}
