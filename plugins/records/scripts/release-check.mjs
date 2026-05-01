@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import os from "node:os";
 
 const repo = path.resolve(new URL("../../..", import.meta.url).pathname);
 const failures = [];
+const npxCache = await mkdtemp(path.join(os.tmpdir(), "claude-records-npx-"));
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -37,8 +39,12 @@ try {
 }
 
 run("npm", ["test"]);
-run("npx", ["--yes", "@anthropic-ai/claude-code", "plugin", "validate", "."]);
-run("npx", ["--yes", "@anthropic-ai/claude-code", "plugin", "validate", "plugins/records"]);
+run("npx", ["--yes", "@anthropic-ai/claude-code", "plugin", "validate", "."], {
+  env: { ...process.env, npm_config_cache: npxCache },
+});
+run("npx", ["--yes", "@anthropic-ai/claude-code", "plugin", "validate", "plugins/records"], {
+  env: { ...process.env, npm_config_cache: npxCache },
+});
 
 const status = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" });
 const unexpected = status.stdout.split(/\r?\n/).filter(Boolean).filter((line) => {
