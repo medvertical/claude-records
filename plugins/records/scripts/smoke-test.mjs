@@ -94,6 +94,7 @@ const required = [
   "plugins/records/skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
   "plugins/records/skills/fhir-validation/scripts/validate-structural.mjs",
   "plugins/records/skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
+  "plugins/records/skills/fhir-validation/scripts/analyze-structuredefinition.mjs",
   "plugins/records/skills/fhir-validation/scripts/detect-fhir-project.mjs",
   "plugins/records/skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
   "plugins/records/skills/fhir-validation/scripts/redact-fhir-summary.mjs",
@@ -168,6 +169,7 @@ for (const script of [
   "plugins/records/skills/fhir-validation/scripts/map-fhir-expression.mjs",
   "plugins/records/skills/fhir-validation/scripts/validate-structural.mjs",
   "plugins/records/skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
+  "plugins/records/skills/fhir-validation/scripts/analyze-structuredefinition.mjs",
   "plugins/records/skills/fhir-validation/scripts/lib/operationoutcome-issues.mjs",
   "plugins/records/skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
 ]) {
@@ -275,6 +277,17 @@ const validPatient = runValidator([], '{"resourceType":"Patient","id":"ok","gend
 if (validPatient.parsed) {
   if (validPatient.status !== 0) errors.push("Structural validator should exit 0 for a valid Patient.");
   if (validPatient.parsed.summary.error !== 0) errors.push("Structural validator should report no errors for a valid Patient.");
+}
+
+// StructureDefinition snapshot/slicing analyzer.
+const analyzer = path.join(plugin, "skills/fhir-validation/scripts/analyze-structuredefinition.mjs");
+const analysis = runJson(analyzer, [path.join(plugin, "fixtures/structuredefinition-sliced.json")]);
+if (analysis) {
+  if (analysis.needsSnapshot !== true) errors.push("Analyzer should flag the differential-only profile as needing a snapshot.");
+  const slice = analysis.slicing?.[0];
+  if (slice?.path !== "Observation.category") errors.push("Analyzer should report the sliced element path.");
+  if (!slice?.slices?.includes("vital") || !slice?.slices?.includes("lab")) errors.push("Analyzer should list declared slice names.");
+  if (slice?.discriminator?.[0]?.path !== "coding.code") errors.push("Analyzer should report the slice discriminator path.");
 }
 
 // Detector package-cache and dependency resolution surface.
