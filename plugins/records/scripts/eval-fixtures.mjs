@@ -112,6 +112,32 @@ if (outcome) {
   if (outcome.resourceType !== "OperationOutcome" || outcome.issueCount !== 2) failures.push("Redactor did not summarize OperationOutcome.");
 }
 
+const validator = path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs");
+const validatorRun = spawnSync(process.execPath, [validator, path.join(plugin, "fixtures/invalid-observation.json")], { cwd: repo, encoding: "utf8" });
+let validatorOutput = null;
+try {
+  validatorOutput = JSON.parse(validatorRun.stdout);
+} catch (error) {
+  failures.push(`Structural validator output was not JSON: ${error.message}`);
+}
+if (validatorOutput) {
+  const stableValidation = {
+    schemaVersion: validatorOutput.schemaVersion,
+    mode: validatorOutput.mode,
+    resourceType: validatorOutput.resourceType,
+    exitCode: validatorRun.status,
+    summary: validatorOutput.summary,
+    issues: validatorOutput.operationOutcome.issue.map((entry) => ({
+      severity: entry.severity,
+      code: entry.code,
+      expression: entry.expression[0],
+    })),
+  };
+  if (JSON.stringify(stableValidation, null, 2) !== JSON.stringify(await snapshot("structural-invalid-observation.json"), null, 2)) {
+    failures.push("Structural validator snapshot changed.");
+  }
+}
+
 if (failures.length) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
