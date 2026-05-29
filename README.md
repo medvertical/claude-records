@@ -92,7 +92,7 @@ The FHIR validation skill guides Claude through five validation paths:
 
 The local CLI fallback uses Records' packaged FHIR R4 structural schema for resource types, required fields, unknown fields, cardinality, primitive types, choice fields, and simple backbone children. It does not replace profile, terminology, invariant, reference, metadata, advisor-rule, anomaly, or evidence-report validation.
 
-Executable helper scripts support deterministic project detection, generated FSH source mapping, OperationOutcome explanation, PHI-minimizing summaries, quality-rule derivation, CI YAML generation, and FHIR expression to JSON Pointer mapping.
+Executable helper scripts support deterministic project detection (including FHIR package-cache and dependency resolution), local structural fallback validation, generated FSH source mapping, OperationOutcome explanation, PHI-minimizing summaries, quality-rule derivation, CI YAML generation, and FHIR expression to JSON Pointer mapping.
 
 ## Repository Scope
 

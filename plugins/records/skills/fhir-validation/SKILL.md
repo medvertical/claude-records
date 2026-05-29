@@ -32,7 +32,7 @@ Then choose the first suitable mode:
 2. Records API, only when `RECORDS_API_URL` is configured and the privacy boundary is acceptable.
 3. Records CLI, using `records validate-file <target>`.
 4. Existing local profile-aware validators such as SUSHI, IG Publisher, Firely Terminal, Java validator, or HAPI when already configured and relevant.
-5. Structural fallback, clearly labeled as not profile-, terminology-, invariant-, or reference-aware.
+5. Structural fallback via `scripts/validate-structural.mjs` ([scope](references/structural-validation.md)), clearly labeled as not profile-, terminology-, invariant-, or reference-aware.
 
 ## Privacy Gates
 

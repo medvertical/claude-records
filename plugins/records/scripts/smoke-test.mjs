@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { access, chmod, mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -89,6 +89,11 @@ const required = [
   "plugins/records/skills/fhir-validation/references/operationoutcome-map.md",
   "plugins/records/skills/fhir-validation/references/quality-rules.md",
   "plugins/records/skills/fhir-validation/references/ci-templates.md",
+  "plugins/records/skills/fhir-validation/references/structural-validation.md",
+  "plugins/records/skills/fhir-validation/scripts/lib/operationoutcome-issues.mjs",
+  "plugins/records/skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
+  "plugins/records/skills/fhir-validation/scripts/validate-structural.mjs",
+  "plugins/records/skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
   "plugins/records/skills/fhir-validation/scripts/detect-fhir-project.mjs",
   "plugins/records/skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
   "plugins/records/skills/fhir-validation/scripts/redact-fhir-summary.mjs",
@@ -161,6 +166,10 @@ for (const script of [
   "plugins/records/skills/fhir-validation/scripts/derive-quality-rules.mjs",
   "plugins/records/skills/fhir-validation/scripts/generate-ci.mjs",
   "plugins/records/skills/fhir-validation/scripts/map-fhir-expression.mjs",
+  "plugins/records/skills/fhir-validation/scripts/validate-structural.mjs",
+  "plugins/records/skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
+  "plugins/records/skills/fhir-validation/scripts/lib/operationoutcome-issues.mjs",
+  "plugins/records/skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
 ]) {
   const scriptStat = await stat(path.join(repo, script));
   if (!scriptStat.isFile()) errors.push(`Script is not a file: ${script}`);
@@ -227,6 +236,68 @@ if (explanation) {
 const expressionMapper = path.join(plugin, "skills/fhir-validation/scripts/map-fhir-expression.mjs");
 const pointer = runJson(expressionMapper, ["Observation.category[0].coding[0].code"]);
 if (pointer?.jsonPointer !== "/category/0/coding/0/code") errors.push("FHIR expression mapper returned unexpected pointer.");
+if (pointer?.confidence !== "exact") errors.push("FHIR expression mapper should map a plain path with exact confidence.");
+
+const choicePointer = runJson(expressionMapper, ["Observation.value[x]"]);
+if (choicePointer?.confidence !== "none" || !choicePointer?.caveats?.length) {
+  errors.push("FHIR expression mapper should flag choice[x] with low confidence and a caveat.");
+}
+
+const slicePointer = runJson(expressionMapper, ["Observation.category[VSCat].coding[0]"]);
+if (!slicePointer?.slices?.some((entry) => entry.slice === "VSCat") || slicePointer?.confidence !== "partial") {
+  errors.push("FHIR expression mapper should report named slices and partial confidence.");
+}
+
+// Issue-map single source of truth stays in sync with the generated doc.
+const docCheck = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/generate-issue-map-doc.mjs"), "--check"], { cwd: repo, encoding: "utf8" });
+if (docCheck.status !== 0) errors.push(`operationoutcome-map.md is out of sync with operationoutcome-issues.mjs: ${docCheck.stderr || docCheck.stdout}`);
+
+// Structural fallback validator.
+function runValidator(args, input = null) {
+  const result = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs"), ...args], { cwd: repo, input, encoding: "utf8" });
+  let parsed = null;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    errors.push(`Structural validator did not output JSON: ${result.stderr || result.stdout}`);
+  }
+  return { status: result.status, parsed };
+}
+
+const invalidObs = runValidator([path.join(plugin, "fixtures/invalid-observation.json")]);
+if (invalidObs.parsed) {
+  if (invalidObs.status !== 1) errors.push("Structural validator should exit 1 for the invalid Observation.");
+  const codes = invalidObs.parsed.operationOutcome.issue.map((entry) => `${entry.severity}:${entry.code}`);
+  if (!codes.includes("error:required")) errors.push("Structural validator should flag the missing required Observation.code.");
+  if (!codes.includes("error:value")) errors.push("Structural validator should flag the non-string Observation.status.");
+}
+const validPatient = runValidator([], '{"resourceType":"Patient","id":"ok","gender":"female"}');
+if (validPatient.parsed) {
+  if (validPatient.status !== 0) errors.push("Structural validator should exit 0 for a valid Patient.");
+  if (validPatient.parsed.summary.error !== 0) errors.push("Structural validator should report no errors for a valid Patient.");
+}
+
+// Detector package-cache and dependency resolution surface.
+// Point at an empty cache so resolution is deterministic regardless of the host.
+const emptyCache = await mkdtemp(path.join(os.tmpdir(), "records-empty-cache-"));
+const resolution = runJson(detector, [miniIg], { ...process.env, FHIR_PACKAGE_CACHE: emptyCache });
+if (resolution) {
+  if (resolution.fhirPackageCache?.available !== true || resolution.fhirPackageCache.packageCount !== 0) {
+    errors.push("Detector should report an available but empty package cache.");
+  }
+  if (resolution.packageResolution?.declaredCount !== 1) errors.push("Detector should count one declared mini-ig dependency.");
+  if (!resolution.packageResolution?.missing?.some((entry) => entry.name === "hl7.fhir.r4.core")) {
+    errors.push("Detector should report the unresolved hl7.fhir.r4.core dependency.");
+  }
+}
+
+// A populated cache resolves the declared dependency.
+const fullCache = await mkdtemp(path.join(os.tmpdir(), "records-full-cache-"));
+await mkdir(path.join(fullCache, "hl7.fhir.r4.core#4.0.1"), { recursive: true });
+const resolvedDetection = runJson(detector, [miniIg], { ...process.env, FHIR_PACKAGE_CACHE: fullCache });
+if (resolvedDetection && resolvedDetection.packageResolution?.resolvedCount !== 1) {
+  errors.push("Detector should resolve hl7.fhir.r4.core when present in the cache.");
+}
 
 if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join("\n"));
