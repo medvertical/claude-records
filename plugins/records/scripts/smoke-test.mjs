@@ -266,6 +266,21 @@ function runValidator(args, input = null) {
   return { status: result.status, parsed };
 }
 
+// runJson in this file passes env, not stdin; this variant feeds JSON on stdin.
+function runJsonInput(script, input) {
+  const result = spawnSync(process.execPath, [script], { cwd: repo, input, encoding: "utf8" });
+  if (result.status !== 0) {
+    errors.push(`${rel(script)} failed on stdin input: ${result.stderr || result.stdout}`);
+    return null;
+  }
+  try {
+    return JSON.parse(result.stdout);
+  } catch (error) {
+    errors.push(`${rel(script)} did not output JSON: ${error.message}`);
+    return null;
+  }
+}
+
 const invalidObs = runValidator([path.join(plugin, "fixtures/invalid-observation.json")]);
 if (invalidObs.parsed) {
   if (invalidObs.status !== 1) errors.push("Structural validator should exit 1 for the invalid Observation.");
@@ -311,6 +326,82 @@ const resolvedDetection = runJson(detector, [miniIg], { ...process.env, FHIR_PAC
 if (resolvedDetection && resolvedDetection.packageResolution?.resolvedCount !== 1) {
   errors.push("Detector should resolve hl7.fhir.r4.core when present in the cache.");
 }
+
+// --- Extended structural validator coverage ---
+function validatorCodes(args, input = null) {
+  const run = runValidator(args, input);
+  return { status: run.status, codes: run.parsed ? run.parsed.operationOutcome.issue.map((entry) => `${entry.code}:${entry.expression[0]}`) : null };
+}
+const unknownElement = validatorCodes([], '{"resourceType":"Patient","id":"x","bogusElement":1}');
+if (!unknownElement.codes?.some((entry) => entry.startsWith("structure:") && entry.includes("bogusElement"))) errors.push("Validator should flag unknown elements as structure.");
+const doubleChoice = validatorCodes([], '{"resourceType":"Observation","status":"final","code":{},"valueString":"a","valueInteger":2}');
+if (!doubleChoice.codes?.includes("structure:Observation.value[x]")) errors.push("Validator should flag choice[x] exclusivity.");
+const badEnum = validatorCodes([], '{"resourceType":"Observation","status":"bogus","code":{}}');
+if (!badEnum.codes?.includes("code-invalid:Observation.status")) errors.push("Validator should flag invalid required code enums.");
+const nullValue = validatorCodes([], '{"resourceType":"Patient","id":"x","active":null}');
+if (!nullValue.codes?.some((entry) => entry.startsWith("value:"))) errors.push("Validator should flag null values.");
+const emptyArray = validatorCodes([], '{"resourceType":"Patient","id":"x","name":[]}');
+if (!emptyArray.codes?.some((entry) => entry.startsWith("value:"))) errors.push("Validator should flag empty arrays.");
+const unknownType = runValidator([], '{"resourceType":"Goober","id":"x"}');
+if (unknownType.status !== 0 || !unknownType.parsed?.operationOutcome.issue.some((entry) => entry.code === "incomplete")) errors.push("Validator should return incomplete info and exit 0 for unschemaed resource types.");
+const bundleRecursion = validatorCodes([], '{"resourceType":"Bundle","type":"collection","entry":[{"resource":{"resourceType":"Observation","status":12}}]}');
+if (!bundleRecursion.codes?.some((entry) => entry.includes("entry[0].resource"))) errors.push("Validator should recurse into Bundle entries.");
+const validatorBadJson = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs")], { cwd: repo, input: "{not json", encoding: "utf8" });
+if (validatorBadJson.status !== 2) errors.push("Validator should exit 2 on invalid JSON.");
+
+// --- Extended expression mapper coverage ---
+const functionExpr = runJson(expressionMapper, ["Bundle.entry.resource.ofType(Patient).name.where(use='official')"]);
+if (!functionExpr?.functions?.some((entry) => entry.name === "ofType") || !functionExpr?.functions?.some((entry) => entry.name === "where")) errors.push("Expression mapper should capture FHIRPath functions.");
+const noArgExpr = spawnSync(process.execPath, [expressionMapper], { cwd: repo, encoding: "utf8" });
+if (noArgExpr.status !== 2) errors.push("Expression mapper should exit 2 with no argument.");
+
+// --- Extended explainer coverage ---
+const allCodes = ["required", "value", "code-invalid", "structure", "invariant", "processing", "not-found", "duplicate", "forbidden", "incomplete", "business-rule", "profile-unknown", "slicing"];
+const allExplained = runJsonInput(explainer, JSON.stringify({ resourceType: "OperationOutcome", issue: allCodes.map((code) => ({ severity: "error", code })) }));
+if (!allExplained?.issues?.every((entry) => entry.meaning && !/Unknown/.test(entry.meaning))) errors.push("Explainer should map every known issue code.");
+const unknownCode = runJsonInput(explainer, JSON.stringify({ resourceType: "OperationOutcome", issue: [{ severity: "error", code: "made-up" }] }));
+if (!/Unknown/.test(unknownCode?.issues?.[0]?.meaning || "")) errors.push("Explainer should fall back for unknown codes.");
+if (spawnSync(process.execPath, [explainer], { cwd: repo, input: '{"resourceType":"Patient"}', encoding: "utf8" }).status !== 2) errors.push("Explainer should exit 2 for non-OperationOutcome input.");
+
+// --- Extended analyzer coverage ---
+const withSnapshot = runJsonInput(analyzer, JSON.stringify({ resourceType: "StructureDefinition", derivation: "constraint", snapshot: { element: [{ path: "Observation" }] } }));
+if (withSnapshot?.needsSnapshot !== false) errors.push("Analyzer should not flag profiles that already have a snapshot.");
+const noDiscriminator = runJsonInput(analyzer, JSON.stringify({ resourceType: "StructureDefinition", derivation: "constraint", snapshot: { element: [{ path: "X" }] }, differential: { element: [{ path: "Observation.category", slicing: { rules: "open" } }] } }));
+if (!noDiscriminator?.caveats?.some((entry) => /no discriminator/.test(entry))) errors.push("Analyzer should caveat slicing without a discriminator.");
+if (spawnSync(process.execPath, [analyzer], { cwd: repo, input: '{"resourceType":"Patient"}', encoding: "utf8" }).status !== 2) errors.push("Analyzer should exit 2 for non-StructureDefinition input.");
+
+// --- Flat-directory detection ---
+const flatDir = await mkdtemp(path.join(os.tmpdir(), "records-flat-"));
+await writeFile(path.join(flatDir, "obs.json"), JSON.stringify({ resourceType: "Observation", id: "a", status: "final", code: {} }), "utf8");
+const flatDetection = runJson(detector, [flatDir], { ...process.env, FHIR_PACKAGE_CACHE: emptyCache });
+if (flatDetection?.projectType !== "fhir-resources" || flatDetection?.resourceInventory.byResourceType.Observation !== 1) {
+  errors.push("Detector should classify a flat directory of resources as fhir-resources.");
+}
+const emptyDir = await mkdtemp(path.join(os.tmpdir(), "records-emptydir-"));
+const emptyDetection = runJson(detector, [emptyDir], { ...process.env, FHIR_PACKAGE_CACHE: emptyCache });
+if (emptyDetection?.projectType !== "unknown") errors.push("Detector should classify an empty directory as unknown.");
+
+// --- Redaction and quality-rule derivation ---
+const redactor = path.join(plugin, "skills/fhir-validation/scripts/redact-fhir-summary.mjs");
+const bundleSummary = runJsonInput(redactor, JSON.stringify({ resourceType: "Bundle", entry: [{ resource: { resourceType: "Patient", id: "p1" } }] }));
+if (bundleSummary?.entryCount !== 1 || bundleSummary?.privacyRiskLevel !== "high") errors.push("Redactor should summarize Bundles and raise risk for Patient entries.");
+const qualityDir = await mkdtemp(path.join(os.tmpdir(), "records-quality-"));
+for (const id of ["a", "b", "c"]) {
+  await writeFile(path.join(qualityDir, `${id}.json`), JSON.stringify({ resourceType: "Observation", id, status: "final", code: {}, meta: { profile: ["https://example.org/StructureDefinition/p"] } }), "utf8");
+}
+const qualityRules = runJson(path.join(plugin, "skills/fhir-validation/scripts/derive-quality-rules.mjs"), [qualityDir]);
+if (!qualityRules?.proposedRules?.some((rule) => rule.id.startsWith("profile-") && rule.confidence === "high")) {
+  errors.push("Quality-rule derivation should propose a high-confidence profile rule when all resources share a profile.");
+}
+
+// --- CI generation modes ---
+const ciGen = path.join(plugin, "skills/fhir-validation/scripts/generate-ci.mjs");
+const apiCi = spawnSync(process.execPath, [ciGen, "--api"], { cwd: repo, encoding: "utf8" }).stdout;
+if (!apiCi.includes("RECORDS_API_URL")) errors.push("CI generator --api should reference RECORDS_API_URL.");
+const sushiCi = spawnSync(process.execPath, [ciGen, "--sushi"], { cwd: repo, encoding: "utf8" }).stdout;
+if (!sushiCi.includes("sushi .")) errors.push("CI generator --sushi should include a SUSHI build step.");
+const uploadCi = spawnSync(process.execPath, [ciGen, "--upload-artifact"], { cwd: repo, encoding: "utf8" }).stdout;
+if (!uploadCi.includes("upload-artifact")) errors.push("CI generator --upload-artifact should add an artifact upload step.");
 
 if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join("\n"));

@@ -295,15 +295,33 @@ const availableRuntimes = {
 };
 
 let projectType = "unknown";
+// Flat-directory fallback: FHIR resources placed directly in the root, with no
+// conventional source/generated layout. Only checked when no conventional
+// resource directory matched, so it does not double-scan known projects.
+const rootResourceDirs = [];
+if (!sourceDirs.length && !generatedDirs.length) {
+  for (const file of (await listFiles(".", 1)).filter((entry) => entry.endsWith(".json") && !entry.includes(path.sep))) {
+    try {
+      const resource = JSON.parse(await readText(file));
+      if (resource && typeof resource.resourceType === "string") {
+        rootResourceDirs.push(".");
+        break;
+      }
+    } catch {
+      // Ignore non-resource JSON in the root.
+    }
+  }
+}
+
 if (workflowFiles.some((file) => file.startsWith("sushi-config")) || sourceDirs.includes("input/fsh")) {
   projectType = "fsh-ig";
 } else if (workflowFiles.includes("ig.ini")) {
   projectType = "ig";
-} else if (sourceDirs.some((dir) => ["input/resources", "examples", "fixtures"].includes(dir))) {
+} else if (sourceDirs.some((dir) => ["input/resources", "examples", "fixtures"].includes(dir)) || rootResourceDirs.length) {
   projectType = "fhir-resources";
 }
 
-const resourceDirs = [...new Set([...sourceDirs, ...generatedDirs].filter((dir) => !dir.endsWith("/fsh") && dir !== "fsh-generated"))];
+const resourceDirs = [...new Set([...sourceDirs, ...generatedDirs, ...rootResourceDirs].filter((dir) => !dir.endsWith("/fsh") && dir !== "fsh-generated"))];
 const resourceInventory = await inventoryResources(resourceDirs);
 const mixedFhirVersionWarning = new Set(fhirVersions.map((value) => String(value).toLowerCase().replace(/\s+/g, ""))).size > 1;
 
