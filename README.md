@@ -9,7 +9,7 @@
 # Records for Claude Code
 
 [![Plugin CI](https://github.com/medvertical/claude-records/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/medvertical/claude-records/actions/workflows/plugin-ci.yml)
-![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Version](https://img.shields.io/badge/version-0.4.0-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
 FHIR validation and data-quality workflow skills for Claude Code.
@@ -137,7 +137,7 @@ Canonical installation is via `medvertical/claude-records`. The ClaudeRegistry s
 
 ## Release Notes
 
-See [plugins/records/eval-results/v0.3.0.md](./plugins/records/eval-results/v0.3.0.md) for the current release checks and scope.
+See [plugins/records/eval-results/v0.4.0.md](./plugins/records/eval-results/v0.4.0.md) for the current release checks and scope.
 
 ## Development
 
