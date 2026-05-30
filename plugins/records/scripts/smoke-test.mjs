@@ -438,8 +438,10 @@ if (!reqChoiceMissing.codes?.some((entry) => entry.includes("required:Medication
 const reqChoicePresent = validatorCodes([], '{"resourceType":"MedicationRequest","id":"m","status":"active","intent":"order","subject":{"reference":"Patient/p"},"medicationCodeableConcept":{}}');
 if (reqChoicePresent.codes?.some((entry) => entry.includes("MedicationRequest.medication[x]"))) errors.push("Validator should accept a satisfied medication[x] choice.");
 
-const containedMissing = validatorCodes([], '{"resourceType":"Observation","status":"final","code":{},"subject":{"reference":"#p1"}}');
-if (!containedMissing.codes?.some((entry) => entry.startsWith("error:not-found:"))) errors.push("Validator should flag an unresolved contained reference as an error.");
+const containedMissing = runValidator([], '{"resourceType":"Observation","status":"final","code":{},"subject":{"reference":"#p1"}}');
+if (containedMissing.parsed?.summary.error !== 1 || !containedMissing.parsed?.operationOutcome.issue.some((entry) => entry.severity === "error" && entry.code === "not-found")) {
+  errors.push("Validator should flag an unresolved contained reference as an error.");
+}
 const bundleUnresolved = runValidator([], '{"resourceType":"Bundle","type":"collection","entry":[{"resource":{"resourceType":"Observation","status":"final","code":{},"subject":{"reference":"Patient/missing"}}}]}');
 if (bundleUnresolved.parsed?.summary.warning !== 1 || bundleUnresolved.status !== 0) errors.push("Validator should warn (not error) on an unresolved intra-Bundle reference.");
 const bundleResolved = runValidator([], '{"resourceType":"Bundle","type":"collection","entry":[{"resource":{"resourceType":"Patient","id":"p"}},{"resource":{"resourceType":"Observation","status":"final","code":{},"subject":{"reference":"Patient/p"}}}]}');
