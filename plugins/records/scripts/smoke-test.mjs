@@ -92,7 +92,11 @@ const required = [
   "plugins/records/skills/fhir-validation/references/structural-validation.md",
   "plugins/records/skills/fhir-validation/scripts/lib/operationoutcome-issues.mjs",
   "plugins/records/skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
+  "plugins/records/skills/fhir-validation/scripts/lib/r4-primitives.mjs",
+  "plugins/records/skills/fhir-validation/scripts/lib/fhirpath-pointer.mjs",
   "plugins/records/skills/fhir-validation/scripts/validate-structural.mjs",
+  "plugins/records/skills/fhir-validation/scripts/validate.mjs",
+  "plugins/records/skills/fhir-validation/scripts/match-slices.mjs",
   "plugins/records/skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
   "plugins/records/skills/fhir-validation/scripts/analyze-structuredefinition.mjs",
   "plugins/records/skills/fhir-validation/scripts/detect-fhir-project.mjs",
@@ -106,6 +110,7 @@ const required = [
   "plugins/records/commands/init-ci.md",
   "plugins/records/commands/explain-outcome.md",
   "plugins/records/commands/derive-quality-rules.md",
+  "plugins/records/commands/validate.md",
   "plugins/records/agents/fhir-validation-reviewer.md",
   "plugins/records/fixtures/invalid-observation.json",
   "plugins/records/fixtures/operationoutcome-required.json",
@@ -168,10 +173,14 @@ for (const script of [
   "plugins/records/skills/fhir-validation/scripts/generate-ci.mjs",
   "plugins/records/skills/fhir-validation/scripts/map-fhir-expression.mjs",
   "plugins/records/skills/fhir-validation/scripts/validate-structural.mjs",
+  "plugins/records/skills/fhir-validation/scripts/validate.mjs",
+  "plugins/records/skills/fhir-validation/scripts/match-slices.mjs",
   "plugins/records/skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
   "plugins/records/skills/fhir-validation/scripts/analyze-structuredefinition.mjs",
   "plugins/records/skills/fhir-validation/scripts/lib/operationoutcome-issues.mjs",
   "plugins/records/skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
+  "plugins/records/skills/fhir-validation/scripts/lib/r4-primitives.mjs",
+  "plugins/records/skills/fhir-validation/scripts/lib/fhirpath-pointer.mjs",
 ]) {
   const scriptStat = await stat(path.join(repo, script));
   if (!scriptStat.isFile()) errors.push(`Script is not a file: ${script}`);
@@ -279,6 +288,18 @@ function runJsonInput(script, input) {
     errors.push(`${rel(script)} did not output JSON: ${error.message}`);
     return null;
   }
+}
+
+// Run an arbitrary JSON-emitting script with file args and return status+parsed.
+function runValidatorScript(script, args) {
+  const result = spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: "utf8" });
+  let parsed = null;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    errors.push(`${rel(script)} did not output JSON: ${result.stderr || result.stdout}`);
+  }
+  return { status: result.status, parsed };
 }
 
 const invalidObs = runValidator([path.join(plugin, "fixtures/invalid-observation.json")]);
@@ -402,6 +423,46 @@ const sushiCi = spawnSync(process.execPath, [ciGen, "--sushi"], { cwd: repo, enc
 if (!sushiCi.includes("sushi .")) errors.push("CI generator --sushi should include a SUSHI build step.");
 const uploadCi = spawnSync(process.execPath, [ciGen, "--upload-artifact"], { cwd: repo, encoding: "utf8" }).stdout;
 if (!uploadCi.includes("upload-artifact")) errors.push("CI generator --upload-artifact should add an artifact upload step.");
+
+// --- v0.5.0: expanded schema, primitives, required choice, references ---
+const condition = validatorCodes([path.join(plugin, "fixtures/condition-missing-subject.json")]);
+if (!condition.codes?.includes("required:Condition.subject")) errors.push("Validator should require Condition.subject.");
+if (!condition.codes?.some((entry) => entry.startsWith("value:Condition.recordedDate"))) errors.push("Validator should flag the malformed Condition.recordedDate primitive.");
+
+const badPrimitive = validatorCodes([], '{"resourceType":"Patient","id":"x","birthDate":"2020-13-01","active":"yes"}');
+if (!badPrimitive.codes?.some((entry) => entry.startsWith("value:Patient.birthDate"))) errors.push("Validator should flag an invalid date primitive.");
+if (!badPrimitive.codes?.some((entry) => entry.startsWith("value:Patient.active"))) errors.push("Validator should flag a non-boolean primitive.");
+
+const reqChoiceMissing = validatorCodes([], '{"resourceType":"MedicationRequest","id":"m","status":"active","intent":"order","subject":{"reference":"Patient/p"}}');
+if (!reqChoiceMissing.codes?.some((entry) => entry.includes("required:MedicationRequest.medication[x]"))) errors.push("Validator should require a medication[x] choice.");
+const reqChoicePresent = validatorCodes([], '{"resourceType":"MedicationRequest","id":"m","status":"active","intent":"order","subject":{"reference":"Patient/p"},"medicationCodeableConcept":{}}');
+if (reqChoicePresent.codes?.some((entry) => entry.includes("MedicationRequest.medication[x]"))) errors.push("Validator should accept a satisfied medication[x] choice.");
+
+const containedMissing = runValidator([], '{"resourceType":"Observation","status":"final","code":{},"subject":{"reference":"#p1"}}');
+if (containedMissing.parsed?.summary.error !== 1 || !containedMissing.parsed?.operationOutcome.issue.some((entry) => entry.severity === "error" && entry.code === "not-found")) {
+  errors.push("Validator should flag an unresolved contained reference as an error.");
+}
+const bundleUnresolved = runValidator([], '{"resourceType":"Bundle","type":"collection","entry":[{"resource":{"resourceType":"Observation","status":"final","code":{},"subject":{"reference":"Patient/missing"}}}]}');
+if (bundleUnresolved.parsed?.summary.warning !== 1 || bundleUnresolved.status !== 0) errors.push("Validator should warn (not error) on an unresolved intra-Bundle reference.");
+const bundleResolved = runValidator([], '{"resourceType":"Bundle","type":"collection","entry":[{"resource":{"resourceType":"Patient","id":"p"}},{"resource":{"resourceType":"Observation","status":"final","code":{},"subject":{"reference":"Patient/p"}}}]}');
+if (bundleResolved.parsed?.summary.warning !== 0 || bundleResolved.parsed?.summary.error !== 0) errors.push("Validator should resolve an intra-Bundle reference cleanly.");
+
+// --- v0.5.0: instance-based slice matching ---
+const matcher = path.join(plugin, "skills/fhir-validation/scripts/match-slices.mjs");
+const slice = runJson(matcher, [path.join(plugin, "fixtures/structuredefinition-sliced.json"), path.join(plugin, "fixtures/observation-sliced-instance.json")]);
+const sliceElement = slice?.slicedElements?.[0];
+if (!sliceElement || JSON.stringify(sliceElement.slices) !== JSON.stringify({ vital: [0], lab: [1] })) errors.push("Slice matcher should attribute entries 0 and 1 to the vital and lab slices.");
+if (!sliceElement?.unmatched?.includes(2)) errors.push("Slice matcher should report the unmatched social-history entry.");
+
+// --- v0.5.0: orchestrator ---
+const orchestrator = path.join(plugin, "skills/fhir-validation/scripts/validate.mjs");
+const orchFile = runValidatorScript(orchestrator, [path.join(plugin, "fixtures/invalid-observation.json")]);
+if (orchFile.status !== 1 || orchFile.parsed?.totals.error !== 2) errors.push("Orchestrator should report 2 errors and exit 1 for the invalid Observation.");
+const firstIssue = orchFile.parsed?.results?.[0]?.issues?.[0];
+if (!firstIssue?.jsonPointer || !firstIssue?.safeFixability) errors.push("Orchestrator should enrich issues with a JSON Pointer and fixability guidance.");
+const orchDir = runValidatorScript(orchestrator, [miniIg]);
+if (orchDir.parsed?.detector?.projectType !== "fsh-ig") errors.push("Orchestrator should include detector context for a directory target.");
+if (!(orchDir.parsed?.totals.resources >= 2)) errors.push("Orchestrator should validate every resource in a directory.");
 
 if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join("\n"));

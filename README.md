@@ -9,7 +9,7 @@
 # Records for Claude Code
 
 [![Plugin CI](https://github.com/medvertical/claude-records/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/medvertical/claude-records/actions/workflows/plugin-ci.yml)
-![Version](https://img.shields.io/badge/version-0.4.0-blue)
+![Version](https://img.shields.io/badge/version-0.5.0-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
 FHIR validation and data-quality workflow skills for Claude Code.
@@ -63,6 +63,7 @@ Example prompts:
 The plugin includes focused commands that route into the `fhir-validation` workflow:
 
 - `/records:doctor` - diagnose FHIR/IG project structure, runtimes, and privacy boundaries.
+- `/records:validate` - run end-to-end local structural validation (detect, validate, explain, map).
 - `/records:init-ci` - generate or update Records FHIR validation CI.
 - `/records:explain-outcome` - explain FHIR `OperationOutcome` issues and safe fixability.
 - `/records:derive-quality-rules` - derive reviewable project quality rules from local evidence.
@@ -92,7 +93,7 @@ The FHIR validation skill guides Claude through five validation paths:
 
 The local CLI fallback uses Records' packaged FHIR R4 structural schema for resource types, required fields, unknown fields, cardinality, primitive types, choice fields, and simple backbone children. It does not replace profile, terminology, invariant, reference, metadata, advisor-rule, anomaly, or evidence-report validation.
 
-Executable helper scripts support deterministic project detection (including FHIR package-cache and dependency resolution), local structural fallback validation, StructureDefinition snapshot/slicing analysis, generated FSH source mapping, OperationOutcome explanation, PHI-minimizing summaries, quality-rule derivation, CI YAML generation, and FHIR expression to JSON Pointer mapping.
+Executable helper scripts support deterministic project detection (including FHIR package-cache and dependency resolution), local structural fallback validation (multi-resource schema, primitive datatype formats, required choices, and contained/intra-Bundle reference integrity), an end-to-end validation orchestrator, StructureDefinition snapshot/slicing analysis and instance-based slice matching, generated FSH source mapping, OperationOutcome explanation, PHI-minimizing summaries, quality-rule derivation, CI YAML generation, and FHIR expression to JSON Pointer mapping.
 
 ## Repository Scope
 
@@ -137,7 +138,7 @@ Canonical installation is via `medvertical/claude-records`. The ClaudeRegistry s
 
 ## Release Notes
 
-See [plugins/records/eval-results/v0.4.0.md](./plugins/records/eval-results/v0.4.0.md) for the current release checks and scope.
+See [plugins/records/eval-results/v0.5.0.md](./plugins/records/eval-results/v0.5.0.md) for the current release checks and scope.
 
 ## Development
 
