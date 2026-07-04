@@ -79,6 +79,9 @@ const packagePath = path.join(repo, "package.json");
 const marketplace = (await exists(marketplacePath)) ? await readJson(marketplacePath) : null;
 const manifest = await readJson(path.join(plugin, ".claude-plugin/plugin.json"));
 const packageJson = (await exists(packagePath)) ? await readJson(packagePath) : null;
+const canonicalSkillFile = path.join(plugin, "skills/fhir-validation/SKILL.md");
+const flatSkillFile = path.join(plugin, "skills/fhir-validation.md");
+const skillFile = (await exists(canonicalSkillFile)) ? canonicalSkillFile : flatSkillFile;
 if (marketplace && marketplace.name !== "medvertical") errors.push("Marketplace name must remain medvertical.");
 if (manifest?.name !== "records") errors.push("Plugin name must remain records.");
 if (marketplace && marketplace.plugins?.[0]?.name !== "records") errors.push("Marketplace plugin entry must remain records.");
@@ -88,7 +91,6 @@ if (packageJson && packageJson.version !== manifest?.version) errors.push("Root 
 const requiredRepoFiles = marketplace ? ["README.md"] : [];
 const requiredPluginFiles = [
   "README.md",
-  "skills/fhir-validation/SKILL.md",
   "skills/fhir-validation/references/ig-workflows.md",
   "skills/fhir-validation/references/repair-policy.md",
   "skills/fhir-validation/references/operationoutcome-map.md",
@@ -128,6 +130,7 @@ for (const file of requiredRepoFiles) {
 for (const file of requiredPluginFiles) {
   if (!(await exists(path.join(plugin, file)))) errors.push(`Missing required file: ${path.relative(repo, path.join(plugin, file))}`);
 }
+if (!(await exists(skillFile))) errors.push("Missing required skill file: skills/fhir-validation/SKILL.md or skills/fhir-validation.md");
 
 const markdownFiles = (await walk(plugin)).filter((file) => file.endsWith(".md"));
 for (const file of markdownFiles) {
@@ -145,7 +148,7 @@ for (const file of markdownFiles) {
 for (const file of [
   ...await walk(path.join(plugin, "commands")),
   ...await walk(path.join(plugin, "agents")),
-  path.join(plugin, "skills/fhir-validation/SKILL.md"),
+  skillFile,
 ]) {
   if (!file.endsWith(".md")) continue;
   const text = await readFile(file, "utf8");
@@ -168,7 +171,7 @@ for (const jsonFile of (await walk(path.join(plugin, "fixtures"))).filter((file)
   await readJson(jsonFile);
 }
 
-const skillText = await readFile(path.join(plugin, "skills/fhir-validation/SKILL.md"), "utf8");
+const skillText = await readFile(skillFile, "utf8");
 const skillLines = skillText.trim().split(/\r?\n/).length;
 if (skillLines > 90) errors.push(`SKILL.md should stay concise; found ${skillLines} lines.`);
 
