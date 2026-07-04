@@ -9,7 +9,10 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const plugin = path.resolve(scriptDir, "..");
 const marketplaceRepo = path.resolve(plugin, "../..");
-const repo = existsSync(path.join(marketplaceRepo, ".claude-plugin/marketplace.json")) ? marketplaceRepo : plugin;
+const isCanonicalMarketplaceLayout = path.basename(plugin) === "records"
+  && path.basename(path.dirname(plugin)) === "plugins"
+  && existsSync(path.join(marketplaceRepo, ".claude-plugin/marketplace.json"));
+const repo = isCanonicalMarketplaceLayout ? marketplaceRepo : plugin;
 const errors = [];
 
 async function exists(file) {
