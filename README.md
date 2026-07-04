@@ -36,11 +36,12 @@ Invoke the FHIR validation skill:
 After installation, try the bundled non-PHI fixtures:
 
 ```text
+/records:validate plugins/records/fixtures/invalid-observation.json
 /records:doctor plugins/records/fixtures/mini-ig
 /records:explain-outcome plugins/records/fixtures/operationoutcome-required.json
 ```
 
-The first command detects a mini SUSHI/FSH IG project. The second explains a sample `OperationOutcome` without claiming that a new validation run happened.
+The first command runs the end-to-end local validation orchestrator. The second detects a mini SUSHI/FSH IG project. The third explains a sample `OperationOutcome` without claiming that a new validation run happened.
 
 ## Skills
 
@@ -75,7 +76,9 @@ It also includes the read-only `fhir-validation-reviewer` agent for diagnosis wi
 | Feature | What it does |
 | --- | --- |
 | Project detection | Detects FHIR resources, SUSHI/FSH, IG Publisher files, CI workflows, runtimes, and privacy warnings. |
+| Local structural validation | Validates common R4 resources, primitive formats, required `choice[x]` elements, contained references, and intra-Bundle references. |
 | OperationOutcome explanation | Maps issue codes such as `required`, `code-invalid`, `profile-unknown`, and `slicing` to fixability and setup guidance. |
+| Slicing analysis | Analyzes StructureDefinition snapshots and matches instances to named slices using value and pattern discriminators. |
 | FSH source mapping | Traces `fsh-generated/resources/*.json` issues back to likely `input/fsh` declarations. |
 | CI generation | Drafts Records validation GitHub Actions workflows for local or API-backed validation. |
 | Privacy redaction | Summarizes Patient-like resources, Bundles, identifiers, and references without printing full PHI. |
