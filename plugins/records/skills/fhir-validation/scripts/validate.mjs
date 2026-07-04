@@ -29,9 +29,16 @@ if (!target) {
   process.exit(2);
 }
 
+async function finish(payload, code) {
+  await new Promise((resolve) => {
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`, resolve);
+  });
+  process.exit(code);
+}
+
 if (isUrlTarget(target)) {
   const runtimePlan = buildRuntimePlan(null, { target });
-  console.log(JSON.stringify({
+  await finish({
     schemaVersion: 1,
     mode: "blocked-pending-consent",
     scope: "No network or FHIR server access was attempted. URL validation requires explicit user consent.",
@@ -42,8 +49,7 @@ if (isUrlTarget(target)) {
     runtimeAttempts: [],
     totals: { resources: 0, error: 0, warning: 0, information: 0 },
     results: [],
-  }, null, 2));
-  process.exit(2);
+  }, 2);
 }
 
 let targetStat;
@@ -203,7 +209,7 @@ if (recordsCliRun) {
       resources: 1,
       ...recordsCliRun.normalized.summary,
     };
-    console.log(JSON.stringify({
+    await finish({
       schemaVersion: 1,
       mode: "records-cli",
       scope: "Local Records CLI validation. Profile, terminology, and invariant coverage depend on the CLI/project configuration.",
@@ -215,8 +221,7 @@ if (recordsCliRun) {
       runtimeAttempts,
       totals,
       results: [recordsCliRun.normalized],
-    }, null, 2));
-    process.exit(totals.error > 0 ? 1 : 0);
+    }, totals.error > 0 ? 1 : 0);
   }
 }
 
@@ -248,7 +253,7 @@ const totals = results.reduce(
   { resources: results.length, error: 0, warning: 0, information: 0 },
 );
 
-console.log(JSON.stringify({
+await finish({
   schemaVersion: 1,
   mode: "structural-fallback (orchestrated)",
   scope: "Local structural triage only. Not profile-, terminology-, invariant-, or cross-document-reference-aware.",
@@ -260,6 +265,4 @@ console.log(JSON.stringify({
   runtimeAttempts,
   totals,
   results,
-}, null, 2));
-
-process.exit(totals.error > 0 ? 1 : 0);
+}, totals.error > 0 ? 1 : 0);
