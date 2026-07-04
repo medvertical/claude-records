@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { access, chmod, mkdir, mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { constants } from "node:fs";
+import { constants, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
 
-const repo = path.resolve(new URL("../../..", import.meta.url).pathname);
-const plugin = path.join(repo, "plugins/records");
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const plugin = path.resolve(scriptDir, "..");
+const marketplaceRepo = path.resolve(plugin, "../..");
+const repo = existsSync(path.join(marketplaceRepo, ".claude-plugin/marketplace.json")) ? marketplaceRepo : plugin;
 const errors = [];
 
 async function exists(file) {
@@ -71,54 +74,59 @@ function runJson(script, args, env = process.env) {
   }
 }
 
-const marketplace = await readJson(path.join(repo, ".claude-plugin/marketplace.json"));
+const marketplacePath = path.join(repo, ".claude-plugin/marketplace.json");
+const packagePath = path.join(repo, "package.json");
+const marketplace = (await exists(marketplacePath)) ? await readJson(marketplacePath) : null;
 const manifest = await readJson(path.join(plugin, ".claude-plugin/plugin.json"));
-const packageJson = await readJson(path.join(repo, "package.json"));
-if (marketplace?.name !== "medvertical") errors.push("Marketplace name must remain medvertical.");
+const packageJson = (await exists(packagePath)) ? await readJson(packagePath) : null;
+if (marketplace && marketplace.name !== "medvertical") errors.push("Marketplace name must remain medvertical.");
 if (manifest?.name !== "records") errors.push("Plugin name must remain records.");
-if (marketplace?.plugins?.[0]?.name !== "records") errors.push("Marketplace plugin entry must remain records.");
-if (marketplace?.plugins?.[0]?.version !== manifest?.version) errors.push("Marketplace and plugin versions differ.");
-if (packageJson?.version !== manifest?.version) errors.push("Root package version must match plugin version.");
+if (marketplace && marketplace.plugins?.[0]?.name !== "records") errors.push("Marketplace plugin entry must remain records.");
+if (marketplace && marketplace.plugins?.[0]?.version !== manifest?.version) errors.push("Marketplace and plugin versions differ.");
+if (packageJson && packageJson.version !== manifest?.version) errors.push("Root package version must match plugin version.");
 
-const required = [
+const requiredRepoFiles = marketplace ? ["README.md"] : [];
+const requiredPluginFiles = [
   "README.md",
-  "plugins/records/README.md",
-  "plugins/records/skills/fhir-validation/SKILL.md",
-  "plugins/records/skills/fhir-validation/references/ig-workflows.md",
-  "plugins/records/skills/fhir-validation/references/repair-policy.md",
-  "plugins/records/skills/fhir-validation/references/operationoutcome-map.md",
-  "plugins/records/skills/fhir-validation/references/quality-rules.md",
-  "plugins/records/skills/fhir-validation/references/ci-templates.md",
-  "plugins/records/skills/fhir-validation/references/structural-validation.md",
-  "plugins/records/skills/fhir-validation/scripts/lib/operationoutcome-issues.mjs",
-  "plugins/records/skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
-  "plugins/records/skills/fhir-validation/scripts/lib/r4-primitives.mjs",
-  "plugins/records/skills/fhir-validation/scripts/lib/fhirpath-pointer.mjs",
-  "plugins/records/skills/fhir-validation/scripts/validate-structural.mjs",
-  "plugins/records/skills/fhir-validation/scripts/validate.mjs",
-  "plugins/records/skills/fhir-validation/scripts/match-slices.mjs",
-  "plugins/records/skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
-  "plugins/records/skills/fhir-validation/scripts/analyze-structuredefinition.mjs",
-  "plugins/records/skills/fhir-validation/scripts/detect-fhir-project.mjs",
-  "plugins/records/skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
-  "plugins/records/skills/fhir-validation/scripts/redact-fhir-summary.mjs",
-  "plugins/records/skills/fhir-validation/scripts/explain-operationoutcome.mjs",
-  "plugins/records/skills/fhir-validation/scripts/derive-quality-rules.mjs",
-  "plugins/records/skills/fhir-validation/scripts/generate-ci.mjs",
-  "plugins/records/skills/fhir-validation/scripts/map-fhir-expression.mjs",
-  "plugins/records/commands/doctor.md",
-  "plugins/records/commands/init-ci.md",
-  "plugins/records/commands/explain-outcome.md",
-  "plugins/records/commands/derive-quality-rules.md",
-  "plugins/records/commands/validate.md",
-  "plugins/records/agents/fhir-validation-reviewer.md",
-  "plugins/records/fixtures/invalid-observation.json",
-  "plugins/records/fixtures/operationoutcome-required.json",
-  "plugins/records/fixtures/mini-ig/input/fsh/profiles.fsh",
-  "plugins/records/fixtures/mini-ig/sushi-config.yaml",
+  "skills/fhir-validation/SKILL.md",
+  "skills/fhir-validation/references/ig-workflows.md",
+  "skills/fhir-validation/references/repair-policy.md",
+  "skills/fhir-validation/references/operationoutcome-map.md",
+  "skills/fhir-validation/references/quality-rules.md",
+  "skills/fhir-validation/references/ci-templates.md",
+  "skills/fhir-validation/references/structural-validation.md",
+  "skills/fhir-validation/scripts/lib/operationoutcome-issues.mjs",
+  "skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
+  "skills/fhir-validation/scripts/lib/r4-primitives.mjs",
+  "skills/fhir-validation/scripts/lib/fhirpath-pointer.mjs",
+  "skills/fhir-validation/scripts/validate-structural.mjs",
+  "skills/fhir-validation/scripts/validate.mjs",
+  "skills/fhir-validation/scripts/match-slices.mjs",
+  "skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
+  "skills/fhir-validation/scripts/analyze-structuredefinition.mjs",
+  "skills/fhir-validation/scripts/detect-fhir-project.mjs",
+  "skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
+  "skills/fhir-validation/scripts/redact-fhir-summary.mjs",
+  "skills/fhir-validation/scripts/explain-operationoutcome.mjs",
+  "skills/fhir-validation/scripts/derive-quality-rules.mjs",
+  "skills/fhir-validation/scripts/generate-ci.mjs",
+  "skills/fhir-validation/scripts/map-fhir-expression.mjs",
+  "commands/doctor.md",
+  "commands/init-ci.md",
+  "commands/explain-outcome.md",
+  "commands/derive-quality-rules.md",
+  "commands/validate.md",
+  "agents/fhir-validation-reviewer.md",
+  "fixtures/invalid-observation.json",
+  "fixtures/operationoutcome-required.json",
+  "fixtures/mini-ig/input/fsh/profiles.fsh",
+  "fixtures/mini-ig/sushi-config.yaml",
 ];
-for (const file of required) {
+for (const file of requiredRepoFiles) {
   if (!(await exists(path.join(repo, file)))) errors.push(`Missing required file: ${file}`);
+}
+for (const file of requiredPluginFiles) {
+  if (!(await exists(path.join(plugin, file)))) errors.push(`Missing required file: ${path.relative(repo, path.join(plugin, file))}`);
 }
 
 const markdownFiles = (await walk(plugin)).filter((file) => file.endsWith(".md"));
@@ -165,24 +173,24 @@ const skillLines = skillText.trim().split(/\r?\n/).length;
 if (skillLines > 90) errors.push(`SKILL.md should stay concise; found ${skillLines} lines.`);
 
 for (const script of [
-  "plugins/records/skills/fhir-validation/scripts/detect-fhir-project.mjs",
-  "plugins/records/skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
-  "plugins/records/skills/fhir-validation/scripts/redact-fhir-summary.mjs",
-  "plugins/records/skills/fhir-validation/scripts/explain-operationoutcome.mjs",
-  "plugins/records/skills/fhir-validation/scripts/derive-quality-rules.mjs",
-  "plugins/records/skills/fhir-validation/scripts/generate-ci.mjs",
-  "plugins/records/skills/fhir-validation/scripts/map-fhir-expression.mjs",
-  "plugins/records/skills/fhir-validation/scripts/validate-structural.mjs",
-  "plugins/records/skills/fhir-validation/scripts/validate.mjs",
-  "plugins/records/skills/fhir-validation/scripts/match-slices.mjs",
-  "plugins/records/skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
-  "plugins/records/skills/fhir-validation/scripts/analyze-structuredefinition.mjs",
-  "plugins/records/skills/fhir-validation/scripts/lib/operationoutcome-issues.mjs",
-  "plugins/records/skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
-  "plugins/records/skills/fhir-validation/scripts/lib/r4-primitives.mjs",
-  "plugins/records/skills/fhir-validation/scripts/lib/fhirpath-pointer.mjs",
+  "skills/fhir-validation/scripts/detect-fhir-project.mjs",
+  "skills/fhir-validation/scripts/map-generated-to-fsh.mjs",
+  "skills/fhir-validation/scripts/redact-fhir-summary.mjs",
+  "skills/fhir-validation/scripts/explain-operationoutcome.mjs",
+  "skills/fhir-validation/scripts/derive-quality-rules.mjs",
+  "skills/fhir-validation/scripts/generate-ci.mjs",
+  "skills/fhir-validation/scripts/map-fhir-expression.mjs",
+  "skills/fhir-validation/scripts/validate-structural.mjs",
+  "skills/fhir-validation/scripts/validate.mjs",
+  "skills/fhir-validation/scripts/match-slices.mjs",
+  "skills/fhir-validation/scripts/generate-issue-map-doc.mjs",
+  "skills/fhir-validation/scripts/analyze-structuredefinition.mjs",
+  "skills/fhir-validation/scripts/lib/operationoutcome-issues.mjs",
+  "skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
+  "skills/fhir-validation/scripts/lib/r4-primitives.mjs",
+  "skills/fhir-validation/scripts/lib/fhirpath-pointer.mjs",
 ]) {
-  const scriptStat = await stat(path.join(repo, script));
+  const scriptStat = await stat(path.join(plugin, script));
   if (!scriptStat.isFile()) errors.push(`Script is not a file: ${script}`);
 }
 

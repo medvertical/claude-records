@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repo = path.resolve(new URL("../../..", import.meta.url).pathname);
-const plugin = path.join(repo, "plugins/records");
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const plugin = path.resolve(scriptDir, "..");
+const marketplaceRepo = path.resolve(plugin, "../..");
+const repo = existsSync(path.join(marketplaceRepo, ".claude-plugin/marketplace.json")) ? marketplaceRepo : plugin;
 const failures = [];
 
 function runJson(script, args, input = null) {
