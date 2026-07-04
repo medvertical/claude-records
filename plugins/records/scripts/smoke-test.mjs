@@ -14,6 +14,7 @@ const isCanonicalMarketplaceLayout = path.basename(plugin) === "records"
   && existsSync(path.join(marketplaceRepo, ".claude-plugin/marketplace.json"));
 const repo = isCanonicalMarketplaceLayout ? marketplaceRepo : plugin;
 const errors = [];
+const spawnMaxBuffer = 10 * 1024 * 1024;
 
 async function exists(file) {
   try {
@@ -64,6 +65,7 @@ function runJson(script, args, env = process.env) {
     cwd: repo,
     encoding: "utf8",
     env,
+    maxBuffer: spawnMaxBuffer,
   });
   if (result.status !== 0) {
     errors.push(`${rel(script)} failed: ${result.stderr || result.stdout}`);
@@ -282,12 +284,12 @@ if (!slicePointer?.slices?.some((entry) => entry.slice === "VSCat") || slicePoin
 }
 
 // Issue-map single source of truth stays in sync with the generated doc.
-const docCheck = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/generate-issue-map-doc.mjs"), "--check"], { cwd: repo, encoding: "utf8" });
+const docCheck = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/generate-issue-map-doc.mjs"), "--check"], { cwd: repo, encoding: "utf8", maxBuffer: spawnMaxBuffer });
 if (docCheck.status !== 0) errors.push(`operationoutcome-map.md is out of sync with operationoutcome-issues.mjs: ${docCheck.stderr || docCheck.stdout}`);
 
 // Structural fallback validator.
 function runValidator(args, input = null) {
-  const result = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs"), ...args], { cwd: repo, input, encoding: "utf8" });
+  const result = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs"), ...args], { cwd: repo, input, encoding: "utf8", maxBuffer: spawnMaxBuffer });
   let parsed = null;
   try {
     parsed = JSON.parse(result.stdout);
@@ -299,7 +301,7 @@ function runValidator(args, input = null) {
 
 // runJson in this file passes env, not stdin; this variant feeds JSON on stdin.
 function runJsonInput(script, input) {
-  const result = spawnSync(process.execPath, [script], { cwd: repo, input, encoding: "utf8" });
+  const result = spawnSync(process.execPath, [script], { cwd: repo, input, encoding: "utf8", maxBuffer: spawnMaxBuffer });
   if (result.status !== 0) {
     errors.push(`${rel(script)} failed on stdin input: ${result.stderr || result.stdout}`);
     return null;
@@ -314,7 +316,7 @@ function runJsonInput(script, input) {
 
 // Run an arbitrary JSON-emitting script with file args and return status+parsed.
 function runValidatorScript(script, args, env = process.env) {
-  const result = spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: "utf8", env });
+  const result = spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: "utf8", env, maxBuffer: spawnMaxBuffer });
   let parsed = null;
   try {
     parsed = JSON.parse(result.stdout);
