@@ -25,10 +25,10 @@ claude plugin marketplace add medvertical/claude-records
 claude plugin install records@medvertical
 ```
 
-Invoke the FHIR validation skill:
+Run local FHIR validation:
 
 ```text
-/records:fhir-validation validate ./examples
+/records:validate ./examples
 ```
 
 ## Quickstart
@@ -52,11 +52,11 @@ Validate FHIR resources, explain issues, add CI checks, and guide safe repair lo
 Example prompts:
 
 ```text
-/records:fhir-validation validate patient.json
+/records:validate patient.json
 /records:fhir-validation { "resourceType": "Observation" }
-/records:fhir-validation explain this OperationOutcome: ...
-/records:fhir-validation add GitHub Actions validation for ./examples
-/records:fhir-validation validate this IG folder
+/records:explain-outcome operationoutcome.json
+/records:init-ci ./examples
+/records:doctor this IG folder
 ```
 
 ## Commands
