@@ -16,10 +16,10 @@ jobs:
   records-validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
       - name: Install Records CLI
         run: npm install -g @records-fhir/cli
       - name: Validate FHIR resources
@@ -41,9 +41,9 @@ Use only when the user explicitly wants hosted/API validation and has configured
 ## SUSHI Prebuild plus Records
 
 ```yaml
-- uses: actions/setup-node@v4
+- uses: actions/setup-node@v5
   with:
-    node-version: 20
+    node-version: 24
 - name: Install FSH tooling
   run: npm install -g fsh-sushi @records-fhir/cli
 - name: Build FSH artifacts

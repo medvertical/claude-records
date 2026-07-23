@@ -1,6 +1,9 @@
-# Claude Plugin Directory Submission
+# Claude Community Marketplace Submission
 
-Use this content for the official Claude Code Plugin Directory submission form.
+Use this content for the Claude community marketplace submission form:
+
+- Claude Console: https://platform.claude.com/plugins/submit
+- Claude Team or Enterprise: https://claude.ai/admin-settings/directory/submissions/plugins/new
 
 ## Plugin
 
@@ -25,15 +28,15 @@ claude plugin install records@medvertical
 
 ## Short Description
 
-Local-first FHIR validation and data-quality workflow skill for Claude Code.
+Local-first FHIR R4 validation, Implementation Guide diagnostics, and CI quality workflows for Claude Code.
 
 ## Long Description
 
-Records helps FHIR developers, IG authors, and AI agents validate FHIR JSON, explain validation issues, add CI checks, and run validate-patch-revalidate workflows with Claude Code.
+Records helps FHIR developers, Implementation Guide authors, and AI agents validate HL7 FHIR R4 JSON, explain `OperationOutcome` and profile issues, diagnose FSH/SUSHI and IG Publisher projects, add CI quality gates, and run validate-patch-revalidate workflows with Claude Code.
 
 The `fhir-validation` skill is local-first and privacy-oriented. It uses Records MCP tools when available, a user-configured Records API when explicitly configured, the local `records validate-file` CLI when available, configured IG/SUSHI/Firely/HAPI validators for profile-aware workflows, or a clearly labeled structural fallback when no Records runtime is available.
 
-Version 0.8.0 splits validation, project diagnosis, and CI/quality work into focused skills; adds a shared capability contract, bounded file/process handling, explicit R4 fallback blocking, pinned CI tooling, live Codex marketplace installation checks, published MII/ISiK/HL7 Europe eval fixtures, and Marketplace workflow screenshots.
+Version 0.8.1 improves marketplace discovery for high-intent FHIR validator, conformance, Implementation Guide, SUSHI, and CI searches; aligns icons and screenshots with the MedVertical brand system; and moves generated GitHub Actions workflows to Node 24 and `actions/*@v5`.
 
 Unlike validator-specific runbooks, Records positions Claude around a data-quality workflow: validate, explain, patch safe mechanical issues, revalidate, and escalate domain-dependent clinical values instead of inventing placeholders.
 
@@ -43,7 +46,7 @@ development
 
 ## Keywords
 
-FHIR, HL7, Claude Code, healthcare interoperability, validation, Records, MCP, data quality, Implementation Guide, IG authoring
+FHIR, FHIR validation, FHIR validator, HL7 FHIR, FHIR R4, healthcare interoperability, health data, data quality, FHIR conformance, FHIR profiles, StructureDefinition, OperationOutcome, Implementation Guide, IG authoring, IG Publisher, SUSHI, terminology, GitHub Actions, CI/CD, Records
 
 ## Privacy
 
@@ -71,3 +74,9 @@ MIT
 ## Release
 
 https://github.com/medvertical/records-agent-tools/releases/latest
+
+## Screenshots
+
+- `plugins/records/assets/screenshot-validation.png`
+- `plugins/records/assets/screenshot-doctor.png`
+- `plugins/records/assets/screenshot-ci.png`

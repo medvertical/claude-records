@@ -40,7 +40,7 @@ try {
 
   for (const skill of expectedSkills) {
     const root = path.join(stagedPlugin, "skills", skill);
-    for (const relative of ["SKILL.md", "agents/openai.yaml", "assets/records-signet.svg"]) {
+    for (const relative of ["SKILL.md", "agents/openai.yaml", "assets/records-app-icon.svg"]) {
       if (!(await exists(path.join(root, relative)))) failures.push(`Installed skill is missing ${skill}/${relative}.`);
     }
     const metadata = await readFile(path.join(root, "agents/openai.yaml"), "utf8");

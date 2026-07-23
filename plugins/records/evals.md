@@ -54,7 +54,7 @@ Expected behavior:
 Prompt:
 
 ```text
-/records:fhir-validation add GitHub Actions validation for ./examples
+/records:fhir-ci-quality add GitHub Actions validation for ./examples
 ```
 
 Expected behavior:
@@ -131,7 +131,7 @@ Expected behavior:
 Prompt:
 
 ```text
-/records:fhir-validation derive data-quality rules from ./examples
+/records:fhir-ci-quality derive data-quality rules from ./examples
 ```
 
 Expected behavior:
@@ -295,3 +295,23 @@ Expected behavior:
 - Test harness creates a fake local `records` executable.
 - `validate.mjs` executes the local Records CLI adapter before structural fallback.
 - Adapter parses `OperationOutcome` JSON and reports `mode: "records-cli"` with `runtimeAttempts`.
+
+## 19. Discoverability and Natural-Language Routing
+
+Use these prompts without naming a skill or slash command. Run them in both Codex and Claude Code when preparing a release.
+
+| Prompt | Expected skill | Expected behavior |
+| --- | --- | --- |
+| `Validate these HL7 FHIR R4 resources and explain every issue.` | `fhir-validation` | Selects the FHIR validator workflow and labels validation depth. |
+| `Why does this FHIR OperationOutcome fail?` | `fhir-validation` | Explains issues without claiming a new validation run. |
+| `Diagnose my SUSHI and IG Publisher package setup.` | `fhir-project-doctor` | Inspects the FHIR Implementation Guide, packages, runtimes, and source/generated boundaries. |
+| `Add FHIR validation to GitHub Actions.` | `fhir-ci-quality` | Generates or reviews a pinned, least-privilege FHIR CI quality gate. |
+| `Validate this JSON against its JSON Schema.` | None | Does not invoke Records unless the input is identified as FHIR. |
+| `Speed up this generic CI pipeline.` | None | Does not invoke the FHIR CI skill without FHIR or healthcare-conformance intent. |
+
+Expected behavior:
+
+- High-intent FHIR phrases route to one focused skill instead of the broadest available skill.
+- `FHIR validator`, `FHIR validation`, `FHIR R4`, `OperationOutcome`, `Implementation Guide`, `IG Publisher`, `SUSHI`, and `FHIR GitHub Actions` are represented in marketplace metadata.
+- Generic JSON validation and generic CI requests do not trigger a Records skill.
+- The selected skill still performs its privacy, capability, and consent checks after routing.
