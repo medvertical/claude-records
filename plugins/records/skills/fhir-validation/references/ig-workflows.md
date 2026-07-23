@@ -32,7 +32,7 @@ When a validation error points to `fsh-generated/resources/*.json`:
 3. Prefer the helper script:
 
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/skills/fhir-validation/scripts/map-generated-to-fsh.mjs" <generated-json> <project-root>
+   node "<skill-root>/scripts/map-generated-to-fsh.mjs" <generated-json> <project-root>
    ```
 
 4. Search `input/fsh` for matching declarations:
@@ -61,7 +61,7 @@ Do not install SUSHI, Java, the IG Publisher, Firely Terminal, HAPI, or terminol
 Constraint profiles (`derivation: constraint`) must have a generated snapshot before profile-aware validation. A differential-only `StructureDefinition` leads the HL7 reference validator, HAPI, and Firely to misreport `structure` and `slicing` issues. When a `slicing` or profile issue appears, analyze the profile first:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/skills/fhir-validation/scripts/analyze-structuredefinition.mjs" <structuredefinition-json>
+node "<skill-root>/scripts/analyze-structuredefinition.mjs" <structuredefinition-json>
 ```
 
 The output reports `needsSnapshot`, and for each sliced element the discriminator type/path and the declared slice names. Use it to:

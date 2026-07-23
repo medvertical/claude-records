@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
 import { issueByCode, unknownIssue } from "./lib/operationoutcome-issues.mjs";
+import { createResultContract } from "./lib/result-contract.mjs";
+import { readStdinLimited, readTextFileLimited } from "./lib/safe-io.mjs";
 
 const file = process.argv[2];
-const text = file ? await readFile(file, "utf8") : await new Promise((resolve) => {
-  let data = "";
-  process.stdin.setEncoding("utf8");
-  process.stdin.on("data", (chunk) => { data += chunk; });
-  process.stdin.on("end", () => resolve(data));
-});
+let text;
+try {
+  text = file ? await readTextFileLimited(file) : await readStdinLimited();
+} catch (error) {
+  console.error(`Cannot read input: ${error.message}`);
+  process.exit(2);
+}
 
 let outcome;
 try {
@@ -45,9 +47,17 @@ const severityCounts = issues.reduce((acc, issue) => {
 }, {});
 
 console.log(JSON.stringify({
-  schemaVersion: 1,
+  ...createResultContract({
+    tool: "explain-operationoutcome",
+    mode: "issue-explanation",
+    ok: !issues.some((issue) => ["fatal", "error"].includes(issue.severity)),
+    privacyBoundary: "local-input-only",
+    validationDepth: "operationoutcome-analysis",
+  }),
   resourceType: "OperationOutcome",
   issueCount: issues.length,
   severityCounts,
   issues,
+  warnings: [],
+  nextActions: ["Apply only fixes classified as mechanically safe; request domain input for clinical values or policy."],
 }, null, 2));

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedFile": "fsh-generated/resources/Observation-MiniObservationMissingCode.json",
   "resourceType": "Observation",
   "id": "MiniObservationMissingCode",

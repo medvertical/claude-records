@@ -5,7 +5,7 @@ argument-hint: "[resource-directory]"
 
 # Derive FHIR Quality Rules
 
-Use `/records:fhir-validation` and read `skills/fhir-validation/references/quality-rules.md`.
+Use the `fhir-ci-quality` skill and read `skills/fhir-validation/references/quality-rules.md`.
 
 Target: `$ARGUMENTS` or directories reported by the detector.
 

@@ -19,7 +19,7 @@ export function buildPrivacyGate(detector, options = {}) {
   const hasResourceInventory = Boolean(detector?.resourceInventory?.scannedJsonFiles);
   const hasProfiles = Boolean(Object.keys(detector?.resourceInventory?.metaProfiles || {}).length);
   const gate = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     riskLevel: detector?.privacyRiskLevel || "low",
     dataSignals: resourceSignals,
     localActionsAllowed: [
@@ -199,7 +199,7 @@ export function buildRuntimePlan(detector, options = {}) {
   const profileAwareCandidate = candidates.find((candidate) => candidate.available && candidate.profileAware !== "no" && !candidate.blocked) || null;
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     target: options.target || null,
     projectType: detector?.projectType || (isUrlTarget(options.target) ? "remote-fhir-url" : "unknown"),
     selectedMode: selectedRuntime.name,

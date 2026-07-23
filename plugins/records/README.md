@@ -9,7 +9,7 @@
 # Records Agent Tools
 
 [![Plugin CI](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml)
-![Version](https://img.shields.io/badge/version-0.7.0-blue)
+![Version](https://img.shields.io/badge/version-0.8.0-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
 FHIR validation and data-quality workflow skills for Claude Code and Codex.
@@ -50,7 +50,7 @@ Use the Records FHIR validation skill to validate ./examples.
 
 | Capability | Claude Code | Codex |
 | --- | --- | --- |
-| `fhir-validation` skill and helper scripts | Yes | Yes |
+| `fhir-validation`, `fhir-project-doctor`, and `fhir-ci-quality` skills | Yes | Yes |
 | Marketplace installation | Yes | Yes |
 | Slash commands | Yes | No; use natural-language prompts |
 | Read-only validation reviewer agent | Yes | No; ask for a read-only review |
@@ -73,7 +73,15 @@ In Codex, ask for the same workflows in natural language and reference the fixtu
 
 ### `fhir-validation`
 
-Validate FHIR resources, explain issues, add CI checks, and guide safe repair loops.
+Validate FHIR resources, explain issues, map generated artifacts to FSH, and guide safe repair loops.
+
+### `fhir-project-doctor`
+
+Diagnose FHIR versions, local runtimes, package-cache state, privacy gates, and setup blockers.
+
+### `fhir-ci-quality`
+
+Generate pinned CI validation and derive candidate quality rules that remain reviewable proposals.
 
 Claude Code exposes `/records:fhir-validation` and the focused commands below. Codex exposes the shared skill through the Records plugin.
 
@@ -106,11 +114,11 @@ Claude Code also includes the read-only `fhir-validation-reviewer` agent for dia
 | Project detection | Detects FHIR resources, SUSHI/FSH, IG Publisher files, CI workflows, runtimes, and privacy warnings. |
 | Runtime planning | Selects local Records CLI when executable, blocks URL/server/API/terminology/package actions without consent, and falls back deterministically. |
 | Package doctor | Checks FHIR package cache, declared dependencies, profile canonicals, mixed FHIR versions, and setup-looking failures. |
-| Local structural validation | Validates common R4 resources, primitive formats, required `choice[x]` elements, contained references, and intra-Bundle references. |
+| Local structural validation | Validates common R4 resources and refuses declared non-R4 projects instead of overstating coverage. |
 | OperationOutcome explanation | Maps issue codes such as `required`, `code-invalid`, `profile-unknown`, and `slicing` to fixability and setup guidance. |
 | Slicing analysis | Analyzes StructureDefinition snapshots and matches instances to named slices using value and pattern discriminators. |
 | FSH source mapping | Traces `fsh-generated/resources/*.json` issues back to likely `input/fsh` declarations. |
-| CI generation | Drafts Records validation GitHub Actions workflows for local or API-backed validation. |
+| CI generation | Drafts least-privilege workflows with pinned Records/SUSHI versions and shell-safe resource paths. |
 | Privacy redaction | Summarizes Patient-like resources, Bundles, identifiers, and references without printing full PHI. |
 | Quality rules | Derives reviewable project data-quality rules from local evidence. |
 
@@ -130,7 +138,7 @@ Executable helper scripts support deterministic project detection (including FHI
 
 ## Repository Scope
 
-This repository is plugin/skill-only. It contains marketplace metadata for Claude Code and Codex, the shared `records` plugin, the `fhir-validation` skill, Claude Code commands and agent metadata, fixtures, and local plugin tests.
+This repository is plugin/skill-only. It contains marketplace metadata for Claude Code and Codex, three focused Records skills, Claude Code commands and agent metadata, published-IG fixtures, and local/Codex installation tests.
 
 The Records Engine, CLI, API, and MCP server live in the Records main repository. This plugin can use those runtimes when they are already installed or configured, but this repository does not contain their implementation.
 
@@ -157,12 +165,14 @@ See [PRIVACY.md](./PRIVACY.md) for the data-handling policy.
 
 See [docs/compatibility.md](./docs/compatibility.md) for how Records CLI/API/MCP, SUSHI, IG Publisher, Firely Terminal, HAPI, and fallback validation are detected and bounded.
 
+Machine-readable helper output follows the [result contract](./docs/result-contract.md).
+
 ## Troubleshooting
 
 - Claude Code commands are missing: restart Claude Code and check `/plugin`.
 - Codex cannot see the skill after installation: start a new thread so it loads the updated plugin.
 - `records` not found: the Records CLI is optional; the skill will use another configured runtime or structural fallback.
-- `claude` not found during `npm run release:check`: only the live plugin update check is skipped.
+- Toolchain validation fails: run `npm ci` to install the pinned Claude Code and Codex CLI versions.
 - Generated JSON has validation errors: edit `input/fsh` when FSH sources exist, then rebuild with SUSHI.
 - Full profile validation is not running: confirm the validator has access to the required profiles, packages, terminology, and FHIR version.
 
@@ -172,16 +182,15 @@ Canonical marketplace source is `medvertical/records-agent-tools`. The ClaudeReg
 
 ## Release Notes
 
-See [eval-results/v0.7.0.md](./eval-results/v0.7.0.md) for the current release checks and scope.
+See [eval-results/v0.8.0.md](./eval-results/v0.8.0.md) for the current release checks and scope.
 
 ## Development
 
 Run plugin checks from this `records-agent-tools` repository root:
 
 ```bash
-npx --yes @anthropic-ai/claude-code plugin validate .
-npm test
-npm run release:check
+npm ci
+npm run check
 ```
 
-`npm test` runs the plugin smoke test and fixture eval harness. Prompt-level release checks live in [evals.md](./evals.md). Results are in [eval-results/](./eval-results/).
+`npm run check` runs smoke tests, synthetic and published-IG evals, a staged Codex install/invocation test, pinned Claude validators, and release metadata checks. CI additionally performs a live Codex marketplace install in its disposable runner. Prompt-level release checks live in [evals.md](./evals.md).

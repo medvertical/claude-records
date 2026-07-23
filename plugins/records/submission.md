@@ -33,7 +33,7 @@ Records helps FHIR developers, IG authors, and AI agents validate FHIR JSON, exp
 
 The `fhir-validation` skill is local-first and privacy-oriented. It uses Records MCP tools when available, a user-configured Records API when explicitly configured, the local `records validate-file` CLI when available, configured IG/SUSHI/Firely/HAPI validators for profile-aware workflows, or a clearly labeled structural fallback when no Records runtime is available.
 
-Version 0.7.0 adds Codex marketplace and skill metadata, Records icon assets, shared Claude Code/Codex documentation, and platform-neutral bundled-script resolution. It retains executable runtime planning, privacy gates, FHIR package-cache diagnostics, a local Records CLI adapter, deterministic project detection, R4 structural fallback validation, StructureDefinition and FSH workflows, OperationOutcome explanation, PHI-minimizing summaries, CI generation, project quality-rule derivation, fixture evals, compatibility documentation, and the Claude Code reviewer agent.
+Version 0.8.0 splits validation, project diagnosis, and CI/quality work into focused skills; adds a shared capability contract, bounded file/process handling, explicit R4 fallback blocking, pinned CI tooling, live Codex marketplace installation checks, published MII/ISiK/HL7 Europe eval fixtures, and Marketplace workflow screenshots.
 
 Unlike validator-specific runbooks, Records positions Claude around a data-quality workflow: validate, explain, patch safe mechanical issues, revalidate, and escalate domain-dependent clinical values instead of inventing placeholders.
 
@@ -62,7 +62,7 @@ It includes operational privacy helpers for redacted summaries and explicit cons
 
 ## Release Quality
 
-Release checks include Claude plugin validation, component smoke tests, fixture evals, detector snapshots, runtime-planning and privacy-gate checks, package-doctor checks, generated-to-FSH mapping snapshots, structural validation snapshots, slicing evals, and PHI redaction snapshots.
+Release checks include pinned Claude plugin validation, a clean Codex marketplace install/discovery check, component smoke tests, synthetic and published-IG fixtures, result-contract checks, runtime/privacy/package checks, bounded-input checks, structural validation, slicing, and PHI redaction snapshots.
 
 ## License
 

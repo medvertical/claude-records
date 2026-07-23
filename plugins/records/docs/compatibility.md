@@ -14,7 +14,7 @@ Use `skills/fhir-validation/scripts/plan-runtime.mjs <target>` for executable ru
 | IG Publisher / Java validator | `ig.ini`, Java, validator jar/scripts | Yes | Yes | Often, when tx/package setup is available | Medium if tx server/package download | Use for full IG validation when configured. |
 | Firely Terminal | `fhir` in `PATH` | Yes | Yes with project scope/packages | Can be | Medium if external terminology/packages | Good cross-check when already installed. |
 | HAPI validator | `hapi-fhir-cli` or project scripts | Yes | Yes with packages | Can be | Medium if external terminology/packages | Good cross-check when already installed. |
-| Structural fallback | none | Yes | No | No | Low | JSON shape only; not conformance validation. |
+| Structural fallback | none | Yes | No | No | Low | FHIR R4 JSON shape only; declared non-R4 projects are blocked instead of downgraded silently. |
 
 ## Rules
 
@@ -23,3 +23,4 @@ Use `skills/fhir-validation/scripts/plan-runtime.mjs <target>` for executable ru
 - Do not edit `fsh-generated/resources` when `input/fsh` exists unless the user explicitly asks for a generated-artifact patch.
 - Do not claim profile, terminology, invariant, or reference validation unless the selected runtime actually loaded that context.
 - Prefer redacted summaries for Patient-like resources and Bundles.
+- Preserve the schema-v2 `capabilities` fields in summaries. A declared profile is not a loaded profile.
