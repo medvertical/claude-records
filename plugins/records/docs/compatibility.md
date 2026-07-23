@@ -1,12 +1,12 @@
 # Compatibility Matrix
 
-This plugin is a Claude Code plugin/skill package. It does not ship the Records Engine, Records API, Records MCP server, SUSHI, IG Publisher, Firely Terminal, HAPI, Java validator, or terminology services.
+This plugin is a Claude Code and Codex skill package. Claude Code additionally consumes the bundled slash commands and reviewer agent metadata. The package does not ship the Records Engine, Records API, Records MCP server, SUSHI, IG Publisher, Firely Terminal, HAPI, Java validator, or terminology services.
 
 Use `skills/fhir-validation/scripts/plan-runtime.mjs <target>` for executable runtime selection and consent gates. Use `skills/fhir-validation/scripts/doctor-packages.mjs <target>` for FHIR package-cache and setup diagnostics.
 
 | Runtime | Detection | Local by default | Profile-aware | Terminology-aware | Network risk | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Records MCP | Claude tool availability | Depends on user config | Yes when backend supports it | Yes when backend supports it | Depends on MCP server | Preferred when configured. |
+| Records MCP | Agent tool availability | Depends on user config | Yes when backend supports it | Yes when backend supports it | Depends on MCP server | Preferred when configured. |
 | Records API | `RECORDS_API_URL` | No | Yes when backend supports it | Yes when backend supports it | High for PHI | Requires explicit consent for patient data. |
 | Records CLI | `records` in `PATH` | Yes | Only if full engine/profile context is configured | Only if configured | Low | Local structural mode must be labeled honestly. |
 | Local Records checkout | `cli/package.json` | Yes | Depends on checkout/runtime | Depends on checkout/runtime | Low | Used only in Records main repo, not this plugin repo. |

@@ -1,0 +1,47 @@
+{
+  "name": "records",
+  "version": "0.7.0",
+  "description": "FHIR validation and data-quality workflow skills for Codex.",
+  "author": {
+    "name": "MedVertical",
+    "email": "hello@medvertical.com",
+    "url": "https://medvertical.com/"
+  },
+  "homepage": "https://github.com/medvertical/records-agent-tools",
+  "repository": "https://github.com/medvertical/records-agent-tools",
+  "license": "MIT",
+  "keywords": [
+    "fhir",
+    "hl7",
+    "validation",
+    "healthcare",
+    "mcp",
+    "records"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Records",
+    "shortDescription": "Validate FHIR resources and improve data quality",
+    "longDescription": "Validate FHIR resources, explain conformance issues, guide safe repair loops, and add repeatable FHIR quality checks to CI.",
+    "developerName": "MedVertical",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://medvertical.com/records",
+    "privacyPolicyURL": "https://github.com/medvertical/records-agent-tools/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/medvertical/records-agent-tools/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Validate the FHIR resources in this project",
+      "Explain and safely fix these FHIR validation issues",
+      "Add FHIR validation to this project's CI"
+    ],
+    "brandColor": "#0C0A09",
+    "composerIcon": "./assets/records-signet.svg",
+    "logo": "./assets/records-signet.svg",
+    "logoDark": "./assets/records-signet-dark.svg",
+    "screenshots": []
+  }
+}

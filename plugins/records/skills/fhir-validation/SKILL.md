@@ -1,8 +1,6 @@
 ---
 name: fhir-validation
 description: This skill should be used when the user asks to validate FHIR resources, check FHIR JSON, review Implementation Guide examples, validate AI-created FHIR output, explain validation issues, generate CI validation steps, derive FHIR data-quality rules, or run a validate-patch-revalidate loop with Records.
-version: 0.6.0
-argument-hint: "[file-or-directory-or-json]"
 allowed-tools: [Read, Glob, Grep, Bash, Edit, Write, MultiEdit]
 ---
 
@@ -12,17 +10,19 @@ Validate FHIR resources with Records and local project tooling. Prefer local or 
 
 ## Arguments
 
-The user invoked this with: $ARGUMENTS
+Treat the user request as a file, directory, JSON resource, OperationOutcome, FHIR URL, or validation goal. If no target is inferable, ask one concise question.
 
-Treat arguments as a file, directory, JSON resource, OperationOutcome, FHIR URL, or validation goal. If no target is inferable, ask one concise question.
+## Bundled Paths
+
+Resolve `<skill-root>` to the absolute directory containing this `SKILL.md`. In Claude Code this is `${CLAUDE_PLUGIN_ROOT}/skills/fhir-validation`; in Codex use the installed skill path supplied with the active skill metadata. Never resolve bundled scripts relative to the user's workspace.
 
 ## Fast Start
 
 For file or directory validation, first run the deterministic detector and runtime planner when available:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/detect-fhir-project.mjs" <target-or-repo>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/plan-runtime.mjs" <target-or-repo>
+node "<skill-root>/scripts/detect-fhir-project.mjs" <target-or-repo>
+node "<skill-root>/scripts/plan-runtime.mjs" <target-or-repo>
 ```
 
 Use their output to pick source directories, generated directories, available runtimes, privacy gates, and validation order.
@@ -48,23 +48,23 @@ Generated artifacts are usually not the durable source. If an issue points at `f
 For generated FSH artifacts, prefer:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/map-generated-to-fsh.mjs" <generated-json> <project-root>
+node "<skill-root>/scripts/map-generated-to-fsh.mjs" <generated-json> <project-root>
 ```
 
 For PHI-sensitive summaries, prefer:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/redact-fhir-summary.mjs" <resource-json>
+node "<skill-root>/scripts/redact-fhir-summary.mjs" <resource-json>
 ```
 
 For OperationOutcome JSON, quality-rule derivation, CI YAML, or FHIR expression mapping, use the matching local helper script before free-form reasoning:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/explain-operationoutcome.mjs" <operationoutcome-json>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/doctor-packages.mjs" <target-or-repo>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/derive-quality-rules.mjs" <resource-directory>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/generate-ci.mjs" --dir <resource-directory>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/map-fhir-expression.mjs" "Observation.category[0].coding[0].code"
+node "<skill-root>/scripts/explain-operationoutcome.mjs" <operationoutcome-json>
+node "<skill-root>/scripts/doctor-packages.mjs" <target-or-repo>
+node "<skill-root>/scripts/derive-quality-rules.mjs" <resource-directory>
+node "<skill-root>/scripts/generate-ci.mjs" --dir <resource-directory>
+node "<skill-root>/scripts/map-fhir-expression.mjs" "Observation.category[0].coding[0].code"
 ```
 
 ## Task References

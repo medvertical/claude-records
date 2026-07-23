@@ -8,12 +8,12 @@ Records
 
 ## Repository
 
-https://github.com/medvertical/claude-records
+https://github.com/medvertical/records-agent-tools
 
 ## Install
 
 ```bash
-claude plugin marketplace add medvertical/claude-records
+claude plugin marketplace add medvertical/records-agent-tools
 claude plugin install records@medvertical
 ```
 
@@ -33,7 +33,7 @@ Records helps FHIR developers, IG authors, and AI agents validate FHIR JSON, exp
 
 The `fhir-validation` skill is local-first and privacy-oriented. It uses Records MCP tools when available, a user-configured Records API when explicitly configured, the local `records validate-file` CLI when available, configured IG/SUSHI/Firely/HAPI validators for profile-aware workflows, or a clearly labeled structural fallback when no Records runtime is available.
 
-Version 0.6.0 adds executable runtime planning, script-level privacy gates for URL/server/API/terminology/package actions, FHIR package-cache diagnostics, and a local Records CLI adapter before structural fallback. It also includes deterministic FHIR project detection, expanded R4 structural fallback validation, primitive datatype checks, required `choice[x]` checks, contained and intra-Bundle reference integrity checks, StructureDefinition snapshot/slicing analysis, generated FSH source mapping, executable OperationOutcome explanation, PHI-minimizing summaries, CI template generation, project quality-rule derivation, fixture evals, release checks, compatibility documentation, and a read-only FHIR validation reviewer agent.
+Version 0.7.0 adds Codex marketplace and skill metadata, Records icon assets, shared Claude Code/Codex documentation, and platform-neutral bundled-script resolution. It retains executable runtime planning, privacy gates, FHIR package-cache diagnostics, a local Records CLI adapter, deterministic project detection, R4 structural fallback validation, StructureDefinition and FSH workflows, OperationOutcome explanation, PHI-minimizing summaries, CI generation, project quality-rule derivation, fixture evals, compatibility documentation, and the Claude Code reviewer agent.
 
 Unlike validator-specific runbooks, Records positions Claude around a data-quality workflow: validate, explain, patch safe mechanical issues, revalidate, and escalate domain-dependent clinical values instead of inventing placeholders.
 
@@ -70,4 +70,4 @@ MIT
 
 ## Release
 
-https://github.com/medvertical/claude-records/releases/latest
+https://github.com/medvertical/records-agent-tools/releases/latest

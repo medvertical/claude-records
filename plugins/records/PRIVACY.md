@@ -4,7 +4,7 @@ The Records FHIR Validation skill is local-first.
 
 ## Default Behavior
 
-By default, the skill instructs Claude to use local project files, local Records CLI commands, or locally configured MCP tools. It must not send clinical or patient data to external services unless the user has explicitly configured that service or clearly consented in the current workflow.
+By default, the skill instructs the coding agent to use local project files, local Records CLI commands, or locally configured MCP tools. It must not send clinical or patient data to external services unless the user has explicitly configured that service or clearly consented in the current workflow.
 
 ## Hosted API Mode
 
@@ -16,7 +16,7 @@ The plugin includes `skills/fhir-validation/scripts/plan-runtime.mjs` and the `v
 
 ## Structural Fallback
 
-When no Records runtime is available, Claude may perform a local structural fallback by parsing JSON and checking obvious FHIR shape issues. This fallback is not full validation and does not require network access.
+When no Records runtime is available, the coding agent may perform a local structural fallback by parsing JSON and checking obvious FHIR shape issues. This fallback is not full validation and does not require network access.
 
 ## Recommended Use
 

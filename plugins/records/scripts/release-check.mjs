@@ -6,7 +6,7 @@ import os from "node:os";
 
 const repo = path.resolve(new URL("../../..", import.meta.url).pathname);
 const failures = [];
-const npxCache = await mkdtemp(path.join(os.tmpdir(), "claude-records-npx-"));
+const npxCache = await mkdtemp(path.join(os.tmpdir(), "records-agent-tools-npx-"));
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {

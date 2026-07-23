@@ -1,12 +1,12 @@
 {
   "name": "records",
   "description": "FHIR validation and data-quality workflow skills for Claude Code.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "author": {
     "name": "MedVertical"
   },
-  "homepage": "https://github.com/medvertical/claude-records",
-  "repository": "https://github.com/medvertical/claude-records",
+  "homepage": "https://github.com/medvertical/records-agent-tools",
+  "repository": "https://github.com/medvertical/records-agent-tools",
   "license": "MIT",
   "keywords": [
     "fhir",

@@ -12,11 +12,11 @@
       "source": "./plugins/records",
       "description": "FHIR validation and data-quality workflows with Records.",
       "category": "development",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "author": {
         "name": "MedVertical"
       },
-      "homepage": "https://github.com/medvertical/claude-records",
+      "homepage": "https://github.com/medvertical/records-agent-tools",
       "keywords": [
         "fhir",
         "hl7",

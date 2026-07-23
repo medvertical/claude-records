@@ -80,22 +80,61 @@ function runJson(script, args, env = process.env) {
 }
 
 const marketplacePath = path.join(repo, ".claude-plugin/marketplace.json");
+const codexMarketplacePath = path.join(repo, ".agents/plugins/marketplace.json");
 const packagePath = path.join(repo, "package.json");
 const marketplace = (await exists(marketplacePath)) ? await readJson(marketplacePath) : null;
+const codexMarketplace = (await exists(codexMarketplacePath)) ? await readJson(codexMarketplacePath) : null;
 const manifest = await readJson(path.join(plugin, ".claude-plugin/plugin.json"));
+const codexManifestPath = path.join(plugin, ".codex-plugin/plugin.json");
+const codexManifest = (await exists(codexManifestPath)) ? await readJson(codexManifestPath) : null;
 const packageJson = (await exists(packagePath)) ? await readJson(packagePath) : null;
 const canonicalSkillFile = path.join(plugin, "skills/fhir-validation/SKILL.md");
 const flatSkillFile = path.join(plugin, "skills/fhir-validation.md");
 const skillFile = (await exists(canonicalSkillFile)) ? canonicalSkillFile : flatSkillFile;
 if (marketplace && marketplace.name !== "medvertical") errors.push("Marketplace name must remain medvertical.");
+if (marketplace && !codexMarketplace) errors.push("Missing Codex marketplace manifest: .agents/plugins/marketplace.json.");
+if (marketplace && !codexManifest) errors.push("Missing Codex plugin manifest: plugins/records/.codex-plugin/plugin.json.");
 if (manifest?.name !== "records") errors.push("Plugin name must remain records.");
 if (marketplace && marketplace.plugins?.[0]?.name !== "records") errors.push("Marketplace plugin entry must remain records.");
 if (marketplace && marketplace.plugins?.[0]?.version !== manifest?.version) errors.push("Marketplace and plugin versions differ.");
 if (packageJson && packageJson.version !== manifest?.version) errors.push("Root package version must match plugin version.");
+if (codexMarketplace && codexMarketplace.name !== "medvertical") errors.push("Codex marketplace name must remain medvertical.");
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.name !== "records") errors.push("Codex marketplace plugin entry must remain records.");
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.source?.path !== "./plugins/records") {
+  errors.push("Codex marketplace source path must remain ./plugins/records.");
+}
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.policy?.installation !== "AVAILABLE") {
+  errors.push("Codex marketplace installation policy must remain AVAILABLE.");
+}
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.policy?.authentication !== "ON_INSTALL") {
+  errors.push("Codex marketplace authentication policy must remain ON_INSTALL.");
+}
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.category !== "Coding") {
+  errors.push("Codex marketplace category must remain Coding.");
+}
+if (codexManifest?.name !== "records") errors.push("Codex plugin name must remain records.");
+if (codexManifest && codexManifest.version !== manifest?.version) errors.push("Claude and Codex plugin versions differ.");
+if (codexManifest && codexManifest.skills !== "./skills/") errors.push("Codex plugin skills path must remain ./skills/.");
+
+for (const field of ["composerIcon", "logo", "logoDark"]) {
+  const assetPath = codexManifest?.interface?.[field];
+  if (typeof assetPath !== "string" || !assetPath.startsWith("./assets/")) {
+    if (codexManifest) errors.push(`Codex interface.${field} must point into ./assets/.`);
+    continue;
+  }
+  const resolvedAsset = path.resolve(plugin, assetPath);
+  const relativeAsset = path.relative(plugin, resolvedAsset);
+  if (relativeAsset.startsWith("..") || path.isAbsolute(relativeAsset)) {
+    errors.push(`Codex interface.${field} resolves outside the plugin.`);
+  } else if (!(await exists(resolvedAsset))) {
+    errors.push(`Missing Codex interface.${field} asset: ${assetPath}`);
+  }
+}
 
 const requiredRepoFiles = marketplace ? ["README.md"] : [];
 const requiredPluginFiles = [
   "README.md",
+  "skills/fhir-validation/agents/openai.yaml",
   "skills/fhir-validation/references/ig-workflows.md",
   "skills/fhir-validation/references/repair-policy.md",
   "skills/fhir-validation/references/operationoutcome-map.md",
@@ -171,8 +210,8 @@ for (const file of [
     }
     if (!frontmatter?.name || !frontmatter?.description) errors.push(`Agent missing name or description: ${rel(file)}`);
   }
-  if (file.endsWith("SKILL.md") && (!frontmatter?.name || !frontmatter?.description || !frontmatter?.version)) {
-    errors.push(`Skill missing required frontmatter: ${rel(file)}`);
+  if (file.endsWith("SKILL.md") && (!frontmatter?.name || !frontmatter?.description)) {
+    errors.push(`Skill missing required name or description: ${rel(file)}`);
   }
 }
 
