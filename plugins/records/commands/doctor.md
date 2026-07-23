@@ -5,7 +5,7 @@ argument-hint: "[path]"
 
 # Records FHIR Validation Doctor
 
-Use `/records:fhir-validation` behavior for this diagnostic task.
+Use the `fhir-project-doctor` skill for this diagnostic task.
 
 Target: `$ARGUMENTS` or the current working directory.
 

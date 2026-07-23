@@ -1,0 +1,9 @@
+interface:
+  display_name: "FHIR CI & Quality"
+  short_description: "Create FHIR CI checks and reviewed quality rules"
+  icon_small: "./assets/records-signet.svg"
+  icon_large: "./assets/records-signet.svg"
+  brand_color: "#0C0A09"
+  default_prompt: "Use $fhir-ci-quality to add safe FHIR validation and quality checks to CI."
+policy:
+  allow_implicit_invocation: true

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { runJsonProcess } from "../skills/fhir-validation/scripts/lib/process-runner.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const plugin = path.resolve(scriptDir, "..");
@@ -15,19 +15,18 @@ const repo = isCanonicalMarketplaceLayout ? marketplaceRepo : plugin;
 const failures = [];
 
 function runJson(script, args, input = null) {
-  const result = spawnSync(process.execPath, [script, ...args], {
+  const result = runJsonProcess(process.execPath, [script, ...args], {
     cwd: repo,
     input,
-    encoding: "utf8",
   });
   if (result.status !== 0) {
     failures.push(`${path.relative(repo, script)} failed: ${result.stderr || result.stdout}`);
     return null;
   }
   try {
-    return JSON.parse(result.stdout);
-  } catch (error) {
-    failures.push(`${path.relative(repo, script)} output was not JSON: ${error.message}`);
+    return result.parsed;
+  } catch {
+    failures.push(`${path.relative(repo, script)} output was not JSON.`);
     return null;
   }
 }
@@ -120,13 +119,9 @@ if (outcome) {
 }
 
 const validator = path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs");
-const validatorRun = spawnSync(process.execPath, [validator, path.join(plugin, "fixtures/invalid-observation.json")], { cwd: repo, encoding: "utf8" });
-let validatorOutput = null;
-try {
-  validatorOutput = JSON.parse(validatorRun.stdout);
-} catch (error) {
-  failures.push(`Structural validator output was not JSON: ${error.message}`);
-}
+const validatorRun = runJsonProcess(process.execPath, [validator, path.join(plugin, "fixtures/invalid-observation.json")], { cwd: repo });
+const validatorOutput = validatorRun.parsed;
+if (!validatorOutput) failures.push("Structural validator output was not JSON.");
 if (validatorOutput) {
   const stableValidation = {
     schemaVersion: validatorOutput.schemaVersion,

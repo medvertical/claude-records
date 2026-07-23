@@ -1,14 +1,18 @@
 #!/usr/bin/env node
-import { access, readdir, readFile, stat } from "node:fs/promises";
+import { access, opendir, stat } from "node:fs/promises";
 import { accessSync } from "node:fs";
 import { constants } from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { spawnSync } from "node:child_process";
+import { createResultContract, normalizedFhirVersion } from "./lib/result-contract.mjs";
+import { boundedEnvInt, readTextFileLimited, scanFiles } from "./lib/safe-io.mjs";
+import { runProcess } from "./lib/process-runner.mjs";
 
-const schemaVersion = 1;
 const root = path.resolve(process.argv[2] || process.cwd());
-const maxInventoryFiles = Number.parseInt(process.env.RECORDS_DETECTOR_MAX_FILES || "500", 10);
+const maxInventoryFiles = boundedEnvInt("RECORDS_DETECTOR_MAX_FILES", 500, { max: 10_000 });
+const maxScanDirectories = boundedEnvInt("RECORDS_SCAN_MAX_DIRECTORIES", 500, { max: 10_000 });
+const maxScanEntries = boundedEnvInt("RECORDS_SCAN_MAX_ENTRIES", 10_000, { max: 1_000_000 });
+const scanWarnings = [];
 
 async function exists(file) {
   try {
@@ -29,30 +33,21 @@ async function isDir(file) {
 
 async function listFiles(dir, depth = 2) {
   const base = path.join(root, dir);
-  const out = [];
-  async function walk(current, remaining) {
-    if (remaining < 0) return;
-    let entries = [];
-    try {
-      entries = await readdir(current, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (["node_modules", ".git", ".fhir", "input-cache"].includes(entry.name)) continue;
-      const full = path.join(current, entry.name);
-      const rel = path.relative(root, full);
-      if (entry.isDirectory()) await walk(full, remaining - 1);
-      else out.push(rel);
-    }
+  const scan = await scanFiles(base, {
+    maxFiles: maxInventoryFiles,
+    maxDirectories: maxScanDirectories,
+    maxEntries: maxScanEntries,
+    maxDepth: depth,
+  });
+  if (scan.stats.truncated) {
+    scanWarnings.push(`File scan for ${dir} reached a safety limit; inventory is partial.`);
   }
-  await walk(base, depth);
-  return out.sort();
+  return scan.files.map((file) => path.relative(root, file));
 }
 
 async function readText(file) {
   try {
-    return await readFile(path.join(root, file), "utf8");
+    return await readTextFileLimited(path.join(root, file));
   } catch {
     return "";
   }
@@ -84,8 +79,8 @@ function commandInfo(command, args = ["--version"]) {
   if (!resolvedPath) {
     return { available: false, command, path: null, version: null, reason: "not_found" };
   }
-  const result = spawnSync(resolvedPath, args, { encoding: "utf8", timeout: 3000 });
-  if (result.error?.code === "ETIMEDOUT" || result.signal === "SIGTERM") {
+  const result = runProcess(resolvedPath, args, { timeout: 3000 });
+  if (result.timedOut) {
     return { available: true, command, path: resolvedPath, version: null, reason: "version_timeout" };
   }
   const output = String(result.stdout || result.stderr || "").split(/\r?\n/).find(Boolean) || null;
@@ -168,18 +163,26 @@ async function scanPackageCache() {
   const dir = packageCacheDir();
   const cache = { path: dir, available: false, packageCount: 0, packages: [] };
   if (!dir) return cache;
-  let entries = [];
+  let handle;
   try {
-    entries = await readdir(dir, { withFileTypes: true });
+    handle = await opendir(dir);
   } catch {
     return cache;
   }
   cache.available = true;
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const [name, version] = entry.name.split("#");
-    if (!name) continue;
-    cache.packages.push({ id: entry.name, name, version: version || null });
+  try {
+    for await (const entry of handle) {
+      if (cache.packages.length >= 2_000) {
+        scanWarnings.push("FHIR package-cache scan reached 2,000 entries; package inventory is partial.");
+        break;
+      }
+      if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+      const [name, version] = entry.name.split("#");
+      if (!name) continue;
+      cache.packages.push({ id: entry.name, name, version: version || null });
+    }
+  } finally {
+    await handle.close().catch(() => {});
   }
   cache.packages.sort((a, b) => a.id.localeCompare(b.id));
   cache.packageCount = cache.packages.length;
@@ -377,7 +380,13 @@ if (mixedFhirVersionWarning) {
 }
 
 const result = {
-  schemaVersion,
+  ...createResultContract({
+    tool: "detect-fhir-project",
+    mode: "project-detection",
+    privacyBoundary: "local-filesystem-only",
+    fhirVersion: normalizedFhirVersion(fhirVersions),
+    validationDepth: "detection-only",
+  }),
   root,
   projectType,
   sourceDirs,
@@ -392,6 +401,8 @@ const result = {
   recommendedOrder,
   privacyRiskLevel,
   privacyWarnings,
+  warnings: [...new Set([...scanWarnings, ...privacyWarnings])],
+  nextActions: recommendedOrder,
 };
 
 console.log(JSON.stringify(result, null, 2));

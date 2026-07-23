@@ -1,10 +1,17 @@
 {
-  "name": "claude-records",
+  "name": "records-agent-tools",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
-    "test": "node plugins/records/scripts/smoke-test.mjs && node plugins/records/scripts/eval-fixtures.mjs",
-    "release:check": "node plugins/records/scripts/release-check.mjs"
+    "test": "node plugins/records/scripts/smoke-test.mjs && node plugins/records/scripts/eval-fixtures.mjs && node plugins/records/scripts/eval-ig-corpus.mjs",
+    "test:codex": "node plugins/records/scripts/codex-e2e.mjs",
+    "validate:claude": "claude plugin validate . && claude plugin validate plugins/records",
+    "release:check": "node plugins/records/scripts/release-check.mjs",
+    "check": "npm test && npm run test:codex && npm run validate:claude && npm run release:check"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.218",
+    "@openai/codex": "0.145.0"
   }
 }

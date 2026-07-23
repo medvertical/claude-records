@@ -1,9 +1,6 @@
 ---
 name: fhir-validation
-description: This skill should be used when the user asks to validate FHIR resources, check FHIR JSON, review Implementation Guide examples, validate AI-created FHIR output, explain validation issues, generate CI validation steps, derive FHIR data-quality rules, or run a validate-patch-revalidate loop with Records.
-version: 0.6.0
-argument-hint: "[file-or-directory-or-json]"
-allowed-tools: [Read, Glob, Grep, Bash, Edit, Write, MultiEdit]
+description: Validate FHIR JSON resources, Implementation Guide examples, and AI-created FHIR output; explain OperationOutcome issues; map defects back to FSH; and run safe validate-patch-revalidate loops. Use for concrete resource validation, conformance triage, issue explanation, and mechanical repair. Use fhir-project-doctor for runtime/package setup and fhir-ci-quality for CI or inferred quality rules.
 ---
 
 # Records FHIR Validation
@@ -12,17 +9,19 @@ Validate FHIR resources with Records and local project tooling. Prefer local or 
 
 ## Arguments
 
-The user invoked this with: $ARGUMENTS
+Treat the user request as a file, directory, JSON resource, OperationOutcome, FHIR URL, or validation goal. If no target is inferable, ask one concise question.
 
-Treat arguments as a file, directory, JSON resource, OperationOutcome, FHIR URL, or validation goal. If no target is inferable, ask one concise question.
+## Bundled Paths
+
+Resolve `<skill-root>` to the absolute directory containing this `SKILL.md`. Resolve `<plugin-root>` two directories above `<skill-root>`. In Claude Code `${CLAUDE_PLUGIN_ROOT}` is also the plugin root; in Codex derive it from the installed skill path. Never resolve bundled scripts relative to the user's workspace.
 
 ## Fast Start
 
 For file or directory validation, first run the deterministic detector and runtime planner when available:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/detect-fhir-project.mjs" <target-or-repo>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/plan-runtime.mjs" <target-or-repo>
+node "<skill-root>/scripts/detect-fhir-project.mjs" <target-or-repo>
+node "<skill-root>/scripts/plan-runtime.mjs" <target-or-repo>
 ```
 
 Use their output to pick source directories, generated directories, available runtimes, privacy gates, and validation order.
@@ -48,23 +47,20 @@ Generated artifacts are usually not the durable source. If an issue points at `f
 For generated FSH artifacts, prefer:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/map-generated-to-fsh.mjs" <generated-json> <project-root>
+node "<skill-root>/scripts/map-generated-to-fsh.mjs" <generated-json> <project-root>
 ```
 
 For PHI-sensitive summaries, prefer:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/redact-fhir-summary.mjs" <resource-json>
+node "<skill-root>/scripts/redact-fhir-summary.mjs" <resource-json>
 ```
 
-For OperationOutcome JSON, quality-rule derivation, CI YAML, or FHIR expression mapping, use the matching local helper script before free-form reasoning:
+For OperationOutcome JSON or FHIR expression mapping, use the matching local helper script before free-form reasoning:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/explain-operationoutcome.mjs" <operationoutcome-json>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/doctor-packages.mjs" <target-or-repo>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/derive-quality-rules.mjs" <resource-directory>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/generate-ci.mjs" --dir <resource-directory>
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/map-fhir-expression.mjs" "Observation.category[0].coding[0].code"
+node "<skill-root>/scripts/explain-operationoutcome.mjs" <operationoutcome-json>
+node "<skill-root>/scripts/map-fhir-expression.mjs" "Observation.category[0].coding[0].code"
 ```
 
 ## Task References
@@ -74,14 +70,15 @@ Load detail files only when the task needs them:
 - IG, SUSHI, FSH, IG Publisher, Firely, HAPI, or generated-resource workflows: [references/ig-workflows.md](references/ig-workflows.md)
 - OperationOutcome explanation or issue-code triage: [references/operationoutcome-map.md](references/operationoutcome-map.md)
 - Safe repair boundaries and domain-input rules: [references/repair-policy.md](references/repair-policy.md)
-- Data-quality rule derivation and CI quality gates: [references/quality-rules.md](references/quality-rules.md)
-- CI workflow generation templates: [references/ci-templates.md](references/ci-templates.md)
+- Runtime/package diagnosis: use the companion `$fhir-project-doctor` skill.
+- Data-quality rules and CI quality gates: use the companion `$fhir-ci-quality` skill.
+- Machine-readable result semantics and exit codes: [../../docs/result-contract.md](../../docs/result-contract.md)
 
 ## Output
 
 Report:
 
-1. Mode and privacy boundary used.
+1. Tool, mode, privacy boundary, FHIR version, validation depth, loaded profiles, and terminology mode.
 2. Summary counts: errors, warnings, info, and score when available.
 3. Errors first, grouped by aspect/path.
 4. Safe fixes applied or recommended.

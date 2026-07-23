@@ -1,36 +1,29 @@
 #!/usr/bin/env node
-import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { createResultContract } from "./lib/result-contract.mjs";
+import { boundedEnvInt, readJsonFileLimited, scanFiles } from "./lib/safe-io.mjs";
 
 const root = path.resolve(process.argv[2] || process.cwd());
-
-async function walk(dir) {
-  const out = [];
-  let entries = [];
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-  for (const entry of entries) {
-    if (["node_modules", ".git", "fsh-generated", "output", "input-cache"].includes(entry.name)) continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...(await walk(full)));
-    else if (entry.name.endsWith(".json")) out.push(full);
-  }
-  return out;
-}
+const maxFiles = boundedEnvInt("RECORDS_QUALITY_MAX_FILES", 500, { max: 10_000 });
 
 function addCount(map, key) {
   if (!key) return;
   map[key] = (map[key] || 0) + 1;
 }
 
-const files = await walk(root);
+const scan = await scanFiles(root, {
+  include: (file) => file.endsWith(".json"),
+  excludeNames: ["node_modules", ".git", "fsh-generated", "output", "input-cache", ".fhir"],
+  maxFiles,
+  maxDirectories: 500,
+  maxEntries: 10_000,
+  maxDepth: 12,
+});
+const files = scan.files;
 const resources = [];
 for (const file of files) {
   try {
-    const resource = JSON.parse(await readFile(file, "utf8"));
+    const resource = await readJsonFileLimited(file);
     if (resource?.resourceType) resources.push({ file: path.relative(root, file), resource });
   } catch {
     // Ignore non-resource JSON.
@@ -80,11 +73,22 @@ for (const [type, count] of Object.entries(byType)) {
 }
 
 console.log(JSON.stringify({
-  schemaVersion: 1,
+  ...createResultContract({
+    tool: "derive-quality-rules",
+    mode: "local-rule-inference",
+    privacyBoundary: "local-filesystem-only",
+    validationDepth: "sample-pattern-analysis",
+  }),
   root,
+  scan: scan.stats,
   sampledResources: resources.length,
   resourceTypes: byType,
   referenceTargets,
   proposedRules: rules,
+  warnings: [
+    "Rules are inferred from local examples and require technical or domain review before becoming policy.",
+    ...(scan.stats.truncated ? ["The scan reached a safety limit; inferred rules are based on a partial sample."] : []),
+  ],
+  nextActions: ["Review each proposed rule and reject conventions that are not backed by an explicit profile or domain decision."],
   caveat: "Rules are inferred from local examples and require review before becoming policy.",
 }, null, 2));

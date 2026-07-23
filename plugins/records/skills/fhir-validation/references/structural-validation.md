@@ -11,7 +11,7 @@ detector first (mode, privacy, missing packages), then validates each resource
 and enriches every issue with fixability guidance and a JSON Pointer.
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/validate.mjs" <file-or-directory>
+node "<skill-root>/scripts/validate.mjs" <file-or-directory>
 ```
 
 Exit code `0` means no error-severity issues across all resources, `1` means at
@@ -20,9 +20,9 @@ least one error, `2` means the target could not be accessed.
 ## Single-resource validator
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/validate-structural.mjs" <resource.json>
+node "<skill-root>/scripts/validate-structural.mjs" <resource.json>
 # or pipe JSON on stdin:
-cat resource.json | node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/validate-structural.mjs"
+cat resource.json | node "<skill-root>/scripts/validate-structural.mjs"
 ```
 
 Output is a FHIR `OperationOutcome` plus a summary (exit `0`/`1`/`2` as above,
@@ -52,7 +52,7 @@ When a `slicing` issue appears, pair the profile with the instance to find which
 array entry matches which named slice (value/pattern discriminators):
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT:-.}/skills/fhir-validation/scripts/match-slices.mjs" <profile-structuredefinition.json> <instance.json>
+node "<skill-root>/scripts/match-slices.mjs" <profile-structuredefinition.json> <instance.json>
 ```
 
 ## What it does NOT check

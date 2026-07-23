@@ -8,25 +8,42 @@
 // when available; this orchestrator is for fast local triage.
 //
 // Usage: validate.mjs <file-or-directory>
-import { readdir, readFile, stat } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
+import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { issueByCode, unknownIssue } from "./lib/operationoutcome-issues.mjs";
 import { mapExpression } from "./lib/fhirpath-pointer.mjs";
 import { buildPackageDoctor } from "./lib/package-doctor.mjs";
 import { buildRuntimePlan, isUrlTarget } from "./lib/runtime-policy.mjs";
+import {
+  createResultContract,
+  normalizedFhirVersion,
+  unsupportedDeclaredFhirVersions,
+} from "./lib/result-contract.mjs";
+import { boundedEnvInt, readJsonFileLimited, scanFiles } from "./lib/safe-io.mjs";
+import { runJsonProcess, runProcess } from "./lib/process-runner.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const validatorScript = path.join(scriptDir, "validate-structural.mjs");
 const detectorScript = path.join(scriptDir, "detect-fhir-project.mjs");
-const maxFiles = Number.parseInt(process.env.RECORDS_VALIDATE_MAX_FILES || "200", 10);
-const recordsCliTimeoutMs = Number.parseInt(process.env.RECORDS_VALIDATE_RUNTIME_TIMEOUT_MS || "30000", 10);
+const maxFiles = boundedEnvInt("RECORDS_VALIDATE_MAX_FILES", 200, { max: 10_000 });
+const maxScanDirectories = boundedEnvInt("RECORDS_SCAN_MAX_DIRECTORIES", 500, { max: 10_000 });
+const maxScanEntries = boundedEnvInt("RECORDS_SCAN_MAX_ENTRIES", 10_000, { max: 1_000_000 });
+const recordsCliTimeoutMs = boundedEnvInt("RECORDS_VALIDATE_RUNTIME_TIMEOUT_MS", 30_000, { max: 10 * 60_000 });
 
 const target = process.argv[2];
 if (!target) {
-  console.error("Usage: validate.mjs <file-or-directory>");
-  process.exit(2);
+  await finish({
+    ...createResultContract({
+      tool: "validate",
+      mode: "input-error",
+      ok: false,
+      validationDepth: "none",
+    }),
+    error: "Usage: validate.mjs <file-or-directory>",
+    warnings: [],
+    nextActions: ["Pass a FHIR JSON file or project directory."],
+  }, 2);
 }
 
 async function finish(payload, code) {
@@ -39,8 +56,13 @@ async function finish(payload, code) {
 if (isUrlTarget(target)) {
   const runtimePlan = buildRuntimePlan(null, { target });
   await finish({
-    schemaVersion: 1,
-    mode: "blocked-pending-consent",
+    ...createResultContract({
+      tool: "validate",
+      mode: "blocked-pending-consent",
+      ok: false,
+      privacyBoundary: "no-network-access",
+      validationDepth: "blocked",
+    }),
     scope: "No network or FHIR server access was attempted. URL validation requires explicit user consent.",
     target,
     privacyGate: runtimePlan.privacyGate,
@@ -49,6 +71,8 @@ if (isUrlTarget(target)) {
     runtimeAttempts: [],
     totals: { resources: 0, error: 0, warning: 0, information: 0 },
     results: [],
+    warnings: ["URL validation is blocked until explicit consent is given."],
+    nextActions: ["Confirm whether this URL may be accessed and whether it can contain PHI."],
   }, 2);
 }
 
@@ -56,36 +80,22 @@ let targetStat;
 try {
   targetStat = await stat(target);
 } catch (error) {
-  console.error(`Cannot access ${target}: ${error.message}`);
-  process.exit(2);
-}
-
-async function walk(dir) {
-  const out = [];
-  let entries = [];
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-  for (const entry of entries) {
-    if (["node_modules", ".git", ".fhir", "input-cache"].includes(entry.name)) continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...(await walk(full)));
-    else if (entry.name.endsWith(".json")) out.push(full);
-  }
-  return out;
+  await finish({
+    ...createResultContract({
+      tool: "validate",
+      mode: "input-error",
+      ok: false,
+      validationDepth: "none",
+    }),
+    target,
+    error: `Cannot access target: ${error.message}`,
+    warnings: [],
+    nextActions: ["Confirm that the target exists and is readable."],
+  }, 2);
 }
 
 function runJsonScript(script, args) {
-  const result = spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
-  let parsed = null;
-  try {
-    parsed = JSON.parse(result.stdout);
-  } catch {
-    parsed = null;
-  }
-  return { status: result.status, parsed, stderr: result.stderr };
+  return runJsonProcess(process.execPath, [script, ...args]);
 }
 
 function severitySummary(issues) {
@@ -148,8 +158,7 @@ function tryRecordsCli(runtimePlan) {
   if (process.env.RECORDS_VALIDATE_STRUCTURAL_ONLY === "1") return null;
   if (selected?.name !== "records-cli" || selected.blocked || !selected.available) return null;
   const command = selected.path || "records";
-  const result = spawnSync(command, ["validate-file", target, "--format", "json"], {
-    encoding: "utf8",
+  const result = runProcess(command, ["validate-file", target, "--format", "json"], {
     timeout: recordsCliTimeoutMs,
   });
   const attempt = {
@@ -161,7 +170,7 @@ function tryRecordsCli(runtimePlan) {
     parsed: false,
     fallbackUsed: false,
   };
-  if (result.error?.code === "ETIMEDOUT" || result.signal === "SIGTERM") {
+  if (result.timedOut) {
     attempt.error = "records CLI timed out";
     attempt.fallbackUsed = true;
     return { attempt, normalized: null };
@@ -210,8 +219,17 @@ if (recordsCliRun) {
       ...recordsCliRun.normalized.summary,
     };
     await finish({
-      schemaVersion: 1,
-      mode: "records-cli",
+      ...createResultContract({
+        tool: "validate",
+        mode: "records-cli",
+        ok: totals.error === 0,
+        privacyBoundary: "local-process-only",
+        fhirVersion: normalizedFhirVersion(detectorOutput?.fhirVersions),
+        validationDepth: "records-cli-configuration-dependent",
+        profilesLoaded: [],
+        terminologyMode: "records-cli-configuration-dependent",
+        referenceMode: "records-cli-configuration-dependent",
+      }),
       scope: "Local Records CLI validation. Profile, terminology, and invariant coverage depend on the CLI/project configuration.",
       target,
       detector,
@@ -221,12 +239,50 @@ if (recordsCliRun) {
       runtimeAttempts,
       totals,
       results: [recordsCliRun.normalized],
+      warnings: detectorOutput?.warnings || [],
+      nextActions: totals.error
+        ? ["Review the reported issues and re-run validation after safe fixes."]
+        : ["Record the CLI configuration before making profile-aware conformance claims."],
     }, totals.error > 0 ? 1 : 0);
   }
 }
 
+const unsupportedVersions = unsupportedDeclaredFhirVersions(detectorOutput?.fhirVersions);
+if (unsupportedVersions.length) {
+  await finish({
+    ...createResultContract({
+      tool: "validate",
+      mode: "blocked-unsupported-fhir-version",
+      ok: false,
+      privacyBoundary: "local-filesystem-only",
+      fhirVersion: normalizedFhirVersion(detectorOutput.fhirVersions),
+      validationDepth: "blocked",
+    }),
+    scope: "The bundled structural fallback is FHIR R4-only and did not validate this project.",
+    target,
+    detector,
+    privacyGate: runtimePlan.privacyGate,
+    runtimePlan,
+    packageDoctor,
+    runtimeAttempts,
+    totals: { resources: 0, error: 1, warning: 0, information: 0 },
+    results: [],
+    warnings: [`Unsupported structural-fallback FHIR version signal(s): ${unsupportedVersions.join(", ")}.`],
+    nextActions: ["Use a profile-aware validator configured for the project's declared FHIR version."],
+  }, 2);
+}
+
+let scanStats = null;
 if (targetStat.isDirectory()) {
-  files = (await walk(target)).slice(0, maxFiles);
+  const scan = await scanFiles(target, {
+    include: (file) => file.endsWith(".json"),
+    maxFiles,
+    maxDirectories: maxScanDirectories,
+    maxEntries: maxScanEntries,
+    maxDepth: 12,
+  });
+  files = scan.files;
+  scanStats = scan.stats;
 } else {
   files = [target];
 }
@@ -235,7 +291,7 @@ const results = [];
 for (const file of files) {
   // Only validate JSON that is actually a FHIR resource.
   try {
-    const parsed = JSON.parse(await readFile(file, "utf8"));
+    const parsed = await readJsonFileLimited(file);
     if (!parsed || typeof parsed.resourceType !== "string") continue;
   } catch {
     continue;
@@ -254,8 +310,19 @@ const totals = results.reduce(
 );
 
 await finish({
-  schemaVersion: 1,
-  mode: "structural-fallback (orchestrated)",
+  ...createResultContract({
+    tool: "validate",
+    mode: "structural-fallback-orchestrated",
+    ok: totals.error === 0,
+    privacyBoundary: "local-filesystem-only",
+    fhirVersion: normalizedFhirVersion(detectorOutput?.fhirVersions) === "unknown"
+      ? "4.0.1-rules; input-version-unknown"
+      : normalizedFhirVersion(detectorOutput?.fhirVersions),
+    validationDepth: "structural-r4",
+    profilesLoaded: [],
+    terminologyMode: "not-checked",
+    referenceMode: "contained-and-intra-bundle-only",
+  }),
   scope: "Local structural triage only. Not profile-, terminology-, invariant-, or cross-document-reference-aware.",
   target,
   detector,
@@ -263,6 +330,14 @@ await finish({
   runtimePlan,
   packageDoctor,
   runtimeAttempts,
+  scan: scanStats,
   totals,
   results,
+  warnings: [
+    ...(detectorOutput?.warnings || []),
+    ...(scanStats?.truncated ? ["Directory scan reached a safety limit; validation coverage is partial."] : []),
+  ],
+  nextActions: totals.error
+    ? ["Apply only mechanical fixes, then re-run validation.", "Use a profile-aware runtime for full conformance."]
+    : ["Use a profile-aware runtime for full conformance before claiming IG compliance."],
 }, totals.error > 0 ? 1 : 0);

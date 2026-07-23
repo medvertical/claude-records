@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { access, chmod, mkdir, mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { constants, existsSync } from "node:fs";
+import { access, chmod, mkdir, mkdtemp, readFile, readdir, stat, symlink, writeFile } from "node:fs/promises";
+import { constants, existsSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
@@ -15,6 +15,30 @@ const isCanonicalMarketplaceLayout = path.basename(plugin) === "records"
 const repo = isCanonicalMarketplaceLayout ? marketplaceRepo : plugin;
 const errors = [];
 const spawnMaxBuffer = 10 * 1024 * 1024;
+const spawnTimeoutMs = 30_000;
+const tempDirs = [];
+
+function safeSpawn(command, args, options = {}) {
+  return spawnSync(command, args, {
+    encoding: "utf8",
+    shell: false,
+    timeout: spawnTimeoutMs,
+    maxBuffer: spawnMaxBuffer,
+    ...options,
+  });
+}
+
+async function createTempDir(prefix) {
+  const dir = await mkdtemp(path.join(os.tmpdir(), prefix));
+  const boundary = `${path.resolve(os.tmpdir())}${path.sep}`;
+  if (!path.resolve(dir).startsWith(boundary)) throw new Error(`Unsafe temp directory: ${dir}`);
+  tempDirs.push(dir);
+  return dir;
+}
+
+process.on("exit", () => {
+  for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+});
 
 async function exists(file) {
   try {
@@ -61,11 +85,9 @@ function parseFrontmatter(text) {
 }
 
 function runJson(script, args, env = process.env) {
-  const result = spawnSync(process.execPath, [script, ...args], {
+  const result = safeSpawn(process.execPath, [script, ...args], {
     cwd: repo,
-    encoding: "utf8",
     env,
-    maxBuffer: spawnMaxBuffer,
   });
   if (result.status !== 0) {
     errors.push(`${rel(script)} failed: ${result.stderr || result.stdout}`);
@@ -80,22 +102,79 @@ function runJson(script, args, env = process.env) {
 }
 
 const marketplacePath = path.join(repo, ".claude-plugin/marketplace.json");
+const codexMarketplacePath = path.join(repo, ".agents/plugins/marketplace.json");
 const packagePath = path.join(repo, "package.json");
 const marketplace = (await exists(marketplacePath)) ? await readJson(marketplacePath) : null;
+const codexMarketplace = (await exists(codexMarketplacePath)) ? await readJson(codexMarketplacePath) : null;
 const manifest = await readJson(path.join(plugin, ".claude-plugin/plugin.json"));
+const codexManifestPath = path.join(plugin, ".codex-plugin/plugin.json");
+const codexManifest = (await exists(codexManifestPath)) ? await readJson(codexManifestPath) : null;
 const packageJson = (await exists(packagePath)) ? await readJson(packagePath) : null;
 const canonicalSkillFile = path.join(plugin, "skills/fhir-validation/SKILL.md");
 const flatSkillFile = path.join(plugin, "skills/fhir-validation.md");
 const skillFile = (await exists(canonicalSkillFile)) ? canonicalSkillFile : flatSkillFile;
+const skillFiles = [];
+for (const entry of await readdir(path.join(plugin, "skills"), { withFileTypes: true })) {
+  if (!entry.isDirectory()) continue;
+  const candidate = path.join(plugin, "skills", entry.name, "SKILL.md");
+  if (await exists(candidate)) skillFiles.push(candidate);
+}
+skillFiles.sort();
+const expectedSkillNames = ["fhir-ci-quality", "fhir-project-doctor", "fhir-validation"];
+if (JSON.stringify(skillFiles.map((file) => path.basename(path.dirname(file)))) !== JSON.stringify(expectedSkillNames)) {
+  errors.push(`Expected focused skills: ${expectedSkillNames.join(", ")}.`);
+}
 if (marketplace && marketplace.name !== "medvertical") errors.push("Marketplace name must remain medvertical.");
+if (marketplace && !codexMarketplace) errors.push("Missing Codex marketplace manifest: .agents/plugins/marketplace.json.");
+if (marketplace && !codexManifest) errors.push("Missing Codex plugin manifest: plugins/records/.codex-plugin/plugin.json.");
 if (manifest?.name !== "records") errors.push("Plugin name must remain records.");
 if (marketplace && marketplace.plugins?.[0]?.name !== "records") errors.push("Marketplace plugin entry must remain records.");
 if (marketplace && marketplace.plugins?.[0]?.version !== manifest?.version) errors.push("Marketplace and plugin versions differ.");
 if (packageJson && packageJson.version !== manifest?.version) errors.push("Root package version must match plugin version.");
+if (codexMarketplace && codexMarketplace.name !== "medvertical") errors.push("Codex marketplace name must remain medvertical.");
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.name !== "records") errors.push("Codex marketplace plugin entry must remain records.");
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.source?.path !== "./plugins/records") {
+  errors.push("Codex marketplace source path must remain ./plugins/records.");
+}
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.policy?.installation !== "AVAILABLE") {
+  errors.push("Codex marketplace installation policy must remain AVAILABLE.");
+}
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.policy?.authentication !== "ON_INSTALL") {
+  errors.push("Codex marketplace authentication policy must remain ON_INSTALL.");
+}
+if (codexMarketplace && codexMarketplace.plugins?.[0]?.category !== "Coding") {
+  errors.push("Codex marketplace category must remain Coding.");
+}
+if (codexManifest?.name !== "records") errors.push("Codex plugin name must remain records.");
+if (codexManifest && codexManifest.version !== manifest?.version) errors.push("Claude and Codex plugin versions differ.");
+if (codexManifest && codexManifest.skills !== "./skills/") errors.push("Codex plugin skills path must remain ./skills/.");
+
+for (const field of ["composerIcon", "logo", "logoDark"]) {
+  const assetPath = codexManifest?.interface?.[field];
+  if (typeof assetPath !== "string" || !assetPath.startsWith("./assets/")) {
+    if (codexManifest) errors.push(`Codex interface.${field} must point into ./assets/.`);
+    continue;
+  }
+  const resolvedAsset = path.resolve(plugin, assetPath);
+  const relativeAsset = path.relative(plugin, resolvedAsset);
+  if (relativeAsset.startsWith("..") || path.isAbsolute(relativeAsset)) {
+    errors.push(`Codex interface.${field} resolves outside the plugin.`);
+  } else if (!(await exists(resolvedAsset))) {
+    errors.push(`Missing Codex interface.${field} asset: ${assetPath}`);
+  }
+}
 
 const requiredRepoFiles = marketplace ? ["README.md"] : [];
 const requiredPluginFiles = [
   "README.md",
+  "docs/result-contract.md",
+  "skills/fhir-validation/agents/openai.yaml",
+  "skills/fhir-project-doctor/SKILL.md",
+  "skills/fhir-project-doctor/agents/openai.yaml",
+  "skills/fhir-project-doctor/assets/records-signet.svg",
+  "skills/fhir-ci-quality/SKILL.md",
+  "skills/fhir-ci-quality/agents/openai.yaml",
+  "skills/fhir-ci-quality/assets/records-signet.svg",
   "skills/fhir-validation/references/ig-workflows.md",
   "skills/fhir-validation/references/repair-policy.md",
   "skills/fhir-validation/references/operationoutcome-map.md",
@@ -108,6 +187,9 @@ const requiredPluginFiles = [
   "skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
   "skills/fhir-validation/scripts/lib/r4-primitives.mjs",
   "skills/fhir-validation/scripts/lib/fhirpath-pointer.mjs",
+  "skills/fhir-validation/scripts/lib/process-runner.mjs",
+  "skills/fhir-validation/scripts/lib/result-contract.mjs",
+  "skills/fhir-validation/scripts/lib/safe-io.mjs",
   "skills/fhir-validation/scripts/validate-structural.mjs",
   "skills/fhir-validation/scripts/validate.mjs",
   "skills/fhir-validation/scripts/match-slices.mjs",
@@ -132,6 +214,12 @@ const requiredPluginFiles = [
   "fixtures/operationoutcome-required.json",
   "fixtures/mini-ig/input/fsh/profiles.fsh",
   "fixtures/mini-ig/sushi-config.yaml",
+  "fixtures/ig-corpus/manifest.json",
+  "scripts/codex-e2e.mjs",
+  "scripts/eval-ig-corpus.mjs",
+  "assets/screenshot-validation.png",
+  "assets/screenshot-doctor.png",
+  "assets/screenshot-ci.png",
 ];
 for (const file of requiredRepoFiles) {
   if (!(await exists(path.join(repo, file)))) errors.push(`Missing required file: ${file}`);
@@ -157,7 +245,7 @@ for (const file of markdownFiles) {
 for (const file of [
   ...await walk(path.join(plugin, "commands")),
   ...await walk(path.join(plugin, "agents")),
-  skillFile,
+  ...skillFiles,
 ]) {
   if (!file.endsWith(".md")) continue;
   const text = await readFile(file, "utf8");
@@ -171,8 +259,8 @@ for (const file of [
     }
     if (!frontmatter?.name || !frontmatter?.description) errors.push(`Agent missing name or description: ${rel(file)}`);
   }
-  if (file.endsWith("SKILL.md") && (!frontmatter?.name || !frontmatter?.description || !frontmatter?.version)) {
-    errors.push(`Skill missing required frontmatter: ${rel(file)}`);
+  if (file.endsWith("SKILL.md") && (!frontmatter?.name || !frontmatter?.description)) {
+    errors.push(`Skill missing required name or description: ${rel(file)}`);
   }
 }
 
@@ -180,9 +268,12 @@ for (const jsonFile of (await walk(path.join(plugin, "fixtures"))).filter((file)
   await readJson(jsonFile);
 }
 
-const skillText = await readFile(skillFile, "utf8");
-const skillLines = skillText.trim().split(/\r?\n/).length;
-if (skillLines > 90) errors.push(`SKILL.md should stay concise; found ${skillLines} lines.`);
+for (const currentSkill of skillFiles) {
+  const skillText = await readFile(currentSkill, "utf8");
+  const skillLines = skillText.trim().split(/\r?\n/).length;
+  if (skillLines > 90) errors.push(`${rel(currentSkill)} should stay concise; found ${skillLines} lines.`);
+  if (skillText.includes("[TODO:")) errors.push(`${rel(currentSkill)} contains a TODO placeholder.`);
+}
 
 for (const script of [
   "skills/fhir-validation/scripts/detect-fhir-project.mjs",
@@ -205,6 +296,9 @@ for (const script of [
   "skills/fhir-validation/scripts/lib/r4-structural-schema.mjs",
   "skills/fhir-validation/scripts/lib/r4-primitives.mjs",
   "skills/fhir-validation/scripts/lib/fhirpath-pointer.mjs",
+  "skills/fhir-validation/scripts/lib/process-runner.mjs",
+  "skills/fhir-validation/scripts/lib/result-contract.mjs",
+  "skills/fhir-validation/scripts/lib/safe-io.mjs",
 ]) {
   const scriptStat = await stat(path.join(plugin, script));
   if (!scriptStat.isFile()) errors.push(`Script is not a file: ${script}`);
@@ -214,7 +308,8 @@ const detector = path.join(plugin, "skills/fhir-validation/scripts/detect-fhir-p
 const miniIg = path.join(plugin, "fixtures/mini-ig");
 const detection = runJson(detector, [miniIg]);
 if (detection) {
-  if (detection.schemaVersion !== 1) errors.push("Detector schemaVersion must be 1.");
+  if (detection.schemaVersion !== 2 || detection.tool !== "detect-fhir-project") errors.push("Detector must use the shared v2 result contract.");
+  if (detection.capabilities?.fhirVersion !== "4.0.1") errors.push("Detector capability contract should expose FHIR 4.0.1.");
   if (detection.projectType !== "fsh-ig") errors.push("mini-ig should detect as fsh-ig.");
   if (!detection.sourceDirs.includes("input/fsh")) errors.push("Detector missed input/fsh.");
   if (!detection.generatedDirs.includes("fsh-generated/resources")) errors.push("Detector missed fsh-generated/resources.");
@@ -230,7 +325,7 @@ if (noPathDetection) {
   }
 }
 
-const fakeBin = await mkdtemp(path.join(os.tmpdir(), "records-plugin-tools-"));
+const fakeBin = await createTempDir("records-plugin-tools-");
 for (const [name, version] of Object.entries({
   records: "records 9.9.9",
   sushi: "SUSHI v9.9.9",
@@ -284,12 +379,12 @@ if (!slicePointer?.slices?.some((entry) => entry.slice === "VSCat") || slicePoin
 }
 
 // Issue-map single source of truth stays in sync with the generated doc.
-const docCheck = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/generate-issue-map-doc.mjs"), "--check"], { cwd: repo, encoding: "utf8", maxBuffer: spawnMaxBuffer });
+const docCheck = safeSpawn(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/generate-issue-map-doc.mjs"), "--check"], { cwd: repo });
 if (docCheck.status !== 0) errors.push(`operationoutcome-map.md is out of sync with operationoutcome-issues.mjs: ${docCheck.stderr || docCheck.stdout}`);
 
 // Structural fallback validator.
 function runValidator(args, input = null) {
-  const result = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs"), ...args], { cwd: repo, input, encoding: "utf8", maxBuffer: spawnMaxBuffer });
+  const result = safeSpawn(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs"), ...args], { cwd: repo, input });
   let parsed = null;
   try {
     parsed = JSON.parse(result.stdout);
@@ -301,7 +396,7 @@ function runValidator(args, input = null) {
 
 // runJson in this file passes env, not stdin; this variant feeds JSON on stdin.
 function runJsonInput(script, input) {
-  const result = spawnSync(process.execPath, [script], { cwd: repo, input, encoding: "utf8", maxBuffer: spawnMaxBuffer });
+  const result = safeSpawn(process.execPath, [script], { cwd: repo, input });
   if (result.status !== 0) {
     errors.push(`${rel(script)} failed on stdin input: ${result.stderr || result.stdout}`);
     return null;
@@ -316,7 +411,7 @@ function runJsonInput(script, input) {
 
 // Run an arbitrary JSON-emitting script with file args and return status+parsed.
 function runValidatorScript(script, args, env = process.env) {
-  const result = spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: "utf8", env, maxBuffer: spawnMaxBuffer });
+  const result = safeSpawn(process.execPath, [script, ...args], { cwd: repo, env });
   let parsed = null;
   try {
     parsed = JSON.parse(result.stdout);
@@ -329,6 +424,8 @@ function runValidatorScript(script, args, env = process.env) {
 const invalidObs = runValidator([path.join(plugin, "fixtures/invalid-observation.json")]);
 if (invalidObs.parsed) {
   if (invalidObs.status !== 1) errors.push("Structural validator should exit 1 for the invalid Observation.");
+  if (invalidObs.parsed.schemaVersion !== 2 || invalidObs.parsed.tool !== "validate-structural") errors.push("Structural validator must use the shared v2 contract.");
+  if (invalidObs.parsed.capabilities?.validationDepth !== "structural-r4") errors.push("Structural validator must label R4 structural depth.");
   const codes = invalidObs.parsed.operationOutcome.issue.map((entry) => `${entry.severity}:${entry.code}`);
   if (!codes.includes("error:required")) errors.push("Structural validator should flag the missing required Observation.code.");
   if (!codes.includes("error:value")) errors.push("Structural validator should flag the non-string Observation.status.");
@@ -352,7 +449,7 @@ if (analysis) {
 
 // Detector package-cache and dependency resolution surface.
 // Point at an empty cache so resolution is deterministic regardless of the host.
-const emptyCache = await mkdtemp(path.join(os.tmpdir(), "records-empty-cache-"));
+const emptyCache = await createTempDir("records-empty-cache-");
 const resolution = runJson(detector, [miniIg], { ...process.env, FHIR_PACKAGE_CACHE: emptyCache });
 if (resolution) {
   if (resolution.fhirPackageCache?.available !== true || resolution.fhirPackageCache.packageCount !== 0) {
@@ -365,7 +462,7 @@ if (resolution) {
 }
 
 // A populated cache resolves the declared dependency.
-const fullCache = await mkdtemp(path.join(os.tmpdir(), "records-full-cache-"));
+const fullCache = await createTempDir("records-full-cache-");
 await mkdir(path.join(fullCache, "hl7.fhir.r4.core#4.0.1"), { recursive: true });
 const resolvedDetection = runJson(detector, [miniIg], { ...process.env, FHIR_PACKAGE_CACHE: fullCache });
 if (resolvedDetection && resolvedDetection.packageResolution?.resolvedCount !== 1) {
@@ -417,13 +514,29 @@ const unknownType = runValidator([], '{"resourceType":"Goober","id":"x"}');
 if (unknownType.status !== 0 || !unknownType.parsed?.operationOutcome.issue.some((entry) => entry.code === "incomplete")) errors.push("Validator should return incomplete info and exit 0 for unschemaed resource types.");
 const bundleRecursion = validatorCodes([], '{"resourceType":"Bundle","type":"collection","entry":[{"resource":{"resourceType":"Observation","status":12}}]}');
 if (!bundleRecursion.codes?.some((entry) => entry.includes("entry[0].resource"))) errors.push("Validator should recurse into Bundle entries.");
-const validatorBadJson = spawnSync(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs")], { cwd: repo, input: "{not json", encoding: "utf8" });
+const validatorBadJson = safeSpawn(process.execPath, [path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs")], { cwd: repo, input: "{not json" });
 if (validatorBadJson.status !== 2) errors.push("Validator should exit 2 on invalid JSON.");
+const unsupportedR5 = runValidator([], '{"resourceType":"StructureDefinition","fhirVersion":"5.0.0"}');
+if (unsupportedR5.status !== 2 || unsupportedR5.parsed?.mode !== "blocked-unsupported-fhir-version") {
+  errors.push("R4 structural fallback should refuse an explicitly declared non-R4 resource.");
+}
+const oversizedInput = safeSpawn(
+  process.execPath,
+  [path.join(plugin, "skills/fhir-validation/scripts/validate-structural.mjs")],
+  {
+    cwd: repo,
+    input: JSON.stringify({ resourceType: "Patient", text: "x".repeat(2_000) }),
+    env: { ...process.env, RECORDS_MAX_INPUT_BYTES: "1024" },
+  },
+);
+if (oversizedInput.status !== 2 || !oversizedInput.stderr.includes("exceeds")) {
+  errors.push("Structural validator should reject stdin beyond the configured byte limit.");
+}
 
 // --- Extended expression mapper coverage ---
 const functionExpr = runJson(expressionMapper, ["Bundle.entry.resource.ofType(Patient).name.where(use='official')"]);
 if (!functionExpr?.functions?.some((entry) => entry.name === "ofType") || !functionExpr?.functions?.some((entry) => entry.name === "where")) errors.push("Expression mapper should capture FHIRPath functions.");
-const noArgExpr = spawnSync(process.execPath, [expressionMapper], { cwd: repo, encoding: "utf8" });
+const noArgExpr = safeSpawn(process.execPath, [expressionMapper], { cwd: repo });
 if (noArgExpr.status !== 2) errors.push("Expression mapper should exit 2 with no argument.");
 
 // --- Extended explainer coverage ---
@@ -432,23 +545,23 @@ const allExplained = runJsonInput(explainer, JSON.stringify({ resourceType: "Ope
 if (!allExplained?.issues?.every((entry) => entry.meaning && !/Unknown/.test(entry.meaning))) errors.push("Explainer should map every known issue code.");
 const unknownCode = runJsonInput(explainer, JSON.stringify({ resourceType: "OperationOutcome", issue: [{ severity: "error", code: "made-up" }] }));
 if (!/Unknown/.test(unknownCode?.issues?.[0]?.meaning || "")) errors.push("Explainer should fall back for unknown codes.");
-if (spawnSync(process.execPath, [explainer], { cwd: repo, input: '{"resourceType":"Patient"}', encoding: "utf8" }).status !== 2) errors.push("Explainer should exit 2 for non-OperationOutcome input.");
+if (safeSpawn(process.execPath, [explainer], { cwd: repo, input: '{"resourceType":"Patient"}' }).status !== 2) errors.push("Explainer should exit 2 for non-OperationOutcome input.");
 
 // --- Extended analyzer coverage ---
 const withSnapshot = runJsonInput(analyzer, JSON.stringify({ resourceType: "StructureDefinition", derivation: "constraint", snapshot: { element: [{ path: "Observation" }] } }));
 if (withSnapshot?.needsSnapshot !== false) errors.push("Analyzer should not flag profiles that already have a snapshot.");
 const noDiscriminator = runJsonInput(analyzer, JSON.stringify({ resourceType: "StructureDefinition", derivation: "constraint", snapshot: { element: [{ path: "X" }] }, differential: { element: [{ path: "Observation.category", slicing: { rules: "open" } }] } }));
 if (!noDiscriminator?.caveats?.some((entry) => /no discriminator/.test(entry))) errors.push("Analyzer should caveat slicing without a discriminator.");
-if (spawnSync(process.execPath, [analyzer], { cwd: repo, input: '{"resourceType":"Patient"}', encoding: "utf8" }).status !== 2) errors.push("Analyzer should exit 2 for non-StructureDefinition input.");
+if (safeSpawn(process.execPath, [analyzer], { cwd: repo, input: '{"resourceType":"Patient"}' }).status !== 2) errors.push("Analyzer should exit 2 for non-StructureDefinition input.");
 
 // --- Flat-directory detection ---
-const flatDir = await mkdtemp(path.join(os.tmpdir(), "records-flat-"));
+const flatDir = await createTempDir("records-flat-");
 await writeFile(path.join(flatDir, "obs.json"), JSON.stringify({ resourceType: "Observation", id: "a", status: "final", code: {} }), "utf8");
 const flatDetection = runJson(detector, [flatDir], { ...process.env, FHIR_PACKAGE_CACHE: emptyCache });
 if (flatDetection?.projectType !== "fhir-resources" || flatDetection?.resourceInventory.byResourceType.Observation !== 1) {
   errors.push("Detector should classify a flat directory of resources as fhir-resources.");
 }
-const emptyDir = await mkdtemp(path.join(os.tmpdir(), "records-emptydir-"));
+const emptyDir = await createTempDir("records-emptydir-");
 const emptyDetection = runJson(detector, [emptyDir], { ...process.env, FHIR_PACKAGE_CACHE: emptyCache });
 if (emptyDetection?.projectType !== "unknown") errors.push("Detector should classify an empty directory as unknown.");
 
@@ -456,7 +569,7 @@ if (emptyDetection?.projectType !== "unknown") errors.push("Detector should clas
 const redactor = path.join(plugin, "skills/fhir-validation/scripts/redact-fhir-summary.mjs");
 const bundleSummary = runJsonInput(redactor, JSON.stringify({ resourceType: "Bundle", entry: [{ resource: { resourceType: "Patient", id: "p1" } }] }));
 if (bundleSummary?.entryCount !== 1 || bundleSummary?.privacyRiskLevel !== "high") errors.push("Redactor should summarize Bundles and raise risk for Patient entries.");
-const qualityDir = await mkdtemp(path.join(os.tmpdir(), "records-quality-"));
+const qualityDir = await createTempDir("records-quality-");
 for (const id of ["a", "b", "c"]) {
   await writeFile(path.join(qualityDir, `${id}.json`), JSON.stringify({ resourceType: "Observation", id, status: "final", code: {}, meta: { profile: ["https://example.org/StructureDefinition/p"] } }), "utf8");
 }
@@ -464,15 +577,36 @@ const qualityRules = runJson(path.join(plugin, "skills/fhir-validation/scripts/d
 if (!qualityRules?.proposedRules?.some((rule) => rule.id.startsWith("profile-") && rule.confidence === "high")) {
   errors.push("Quality-rule derivation should propose a high-confidence profile rule when all resources share a profile.");
 }
+const outsideQualityDir = await createTempDir("records-quality-outside-");
+const outsideResource = path.join(outsideQualityDir, "outside.json");
+await writeFile(outsideResource, JSON.stringify({ resourceType: "Patient", id: "outside" }), "utf8");
+await symlink(outsideResource, path.join(qualityDir, "linked-outside.json"));
+const qualityWithSymlink = runJson(path.join(plugin, "skills/fhir-validation/scripts/derive-quality-rules.mjs"), [qualityDir]);
+if (qualityWithSymlink?.sampledResources !== 3 || qualityWithSymlink?.scan?.skippedSymlinks !== 1) {
+  errors.push("Quality-rule scan should skip symlinks instead of reading outside the selected tree.");
+}
 
 // --- CI generation modes ---
 const ciGen = path.join(plugin, "skills/fhir-validation/scripts/generate-ci.mjs");
-const apiCi = spawnSync(process.execPath, [ciGen, "--api"], { cwd: repo, encoding: "utf8" }).stdout;
+const apiCi = safeSpawn(process.execPath, [ciGen, "--api"], { cwd: repo }).stdout;
 if (!apiCi.includes("RECORDS_API_URL")) errors.push("CI generator --api should reference RECORDS_API_URL.");
-const sushiCi = spawnSync(process.execPath, [ciGen, "--sushi"], { cwd: repo, encoding: "utf8" }).stdout;
+const sushiCi = safeSpawn(process.execPath, [ciGen, "--sushi"], { cwd: repo }).stdout;
 if (!sushiCi.includes("sushi .")) errors.push("CI generator --sushi should include a SUSHI build step.");
-const uploadCi = spawnSync(process.execPath, [ciGen, "--upload-artifact"], { cwd: repo, encoding: "utf8" }).stdout;
+const uploadCi = safeSpawn(process.execPath, [ciGen, "--upload-artifact"], { cwd: repo }).stdout;
 if (!uploadCi.includes("upload-artifact")) errors.push("CI generator --upload-artifact should add an artifact upload step.");
+if (!uploadCi.includes("permissions:\n  contents: read") || !uploadCi.includes("@records-fhir/cli@0.1.1")) {
+  errors.push("CI generator should emit least-privilege permissions and a pinned Records CLI.");
+}
+const adversarialCi = safeSpawn(process.execPath, [ciGen, "--dir", "examples; echo injected"], { cwd: repo }).stdout;
+if (!adversarialCi.includes("FHIR_RESOURCE_DIR: 'examples; echo injected'") || adversarialCi.includes("validate-file examples;")) {
+  errors.push("CI generator should keep resource-directory input out of generated shell syntax.");
+}
+const ciContract = runJson(ciGen, ["--json", "--dir", "./examples"]);
+if (ciContract?.tool !== "generate-ci" || !ciContract?.artifact?.content?.includes("name: FHIR Validation")) {
+  errors.push("CI generator JSON mode should return the shared contract and YAML artifact.");
+}
+const expressionInjectionCi = safeSpawn(process.execPath, [ciGen, "--dir", "${{ github.token }}"], { cwd: repo });
+if (expressionInjectionCi.status !== 2) errors.push("CI generator should reject GitHub expression syntax in path input.");
 
 // --- v0.5.0: expanded schema, primitives, required choice, references ---
 const condition = validatorCodes([path.join(plugin, "fixtures/condition-missing-subject.json")]);
@@ -520,8 +654,42 @@ const orchUrl = runValidatorScript(orchestrator, ["https://example.org/fhir/Pati
 if (orchUrl.status !== 2 || orchUrl.parsed?.mode !== "blocked-pending-consent") {
   errors.push("Orchestrator should block URL targets pending consent without fetching.");
 }
+const r5Project = await createTempDir("records-r5-project-");
+await mkdir(path.join(r5Project, "input/resources"), { recursive: true });
+await writeFile(path.join(r5Project, "sushi-config.yaml"), "id: records.r5.test\nfhirVersion: 5.0.0\n", "utf8");
+await writeFile(path.join(r5Project, "input/resources/Observation-r5.json"), JSON.stringify({
+  resourceType: "Observation",
+  status: "final",
+  code: {},
+}), "utf8");
+const orchR5 = runValidatorScript(orchestrator, [r5Project], {
+  ...process.env,
+  PATH: "",
+  FHIR_PACKAGE_CACHE: emptyCache,
+});
+if (orchR5.status !== 2 || orchR5.parsed?.mode !== "blocked-unsupported-fhir-version") {
+  errors.push("Orchestrator should refuse R4 fallback for a project declaring FHIR 5.0.0.");
+}
+const boundedProject = await createTempDir("records-bounded-project-");
+for (const id of ["a", "b", "c"]) {
+  await writeFile(path.join(boundedProject, `${id}.json`), JSON.stringify({
+    resourceType: "Observation",
+    id,
+    status: "final",
+    code: {},
+  }), "utf8");
+}
+const boundedRun = runValidatorScript(orchestrator, [boundedProject], {
+  ...process.env,
+  PATH: "",
+  FHIR_PACKAGE_CACHE: emptyCache,
+  RECORDS_VALIDATE_MAX_FILES: "1",
+});
+if (boundedRun.parsed?.totals?.resources !== 1 || boundedRun.parsed?.scan?.truncated !== true) {
+  errors.push("Orchestrator should enforce file limits during traversal and report partial coverage.");
+}
 
-const fakeRuntimeBin = await mkdtemp(path.join(os.tmpdir(), "records-runtime-"));
+const fakeRuntimeBin = await createTempDir("records-runtime-");
 const fakeRecords = path.join(fakeRuntimeBin, "records");
 await writeFile(fakeRecords, `#!/bin/sh
 if [ "$1" = "--version" ]; then
@@ -529,6 +697,9 @@ if [ "$1" = "--version" ]; then
   exit 0
 fi
 if [ "$1" = "validate-file" ]; then
+  if [ "$RECORDS_TEST_SLOW" = "1" ]; then
+    sleep 2
+  fi
   cat <<'JSON'
 {"resourceType":"OperationOutcome","issue":[{"severity":"error","code":"required","expression":["Observation.code"],"details":{"text":"Missing required element code."}}]}
 JSON
@@ -547,6 +718,15 @@ if (orchRecordsCli.status !== 1 || orchRecordsCli.parsed?.mode !== "records-cli"
 }
 if (!orchRecordsCli.parsed?.runtimeAttempts?.[0]?.parsed || orchRecordsCli.parsed?.totals?.error !== 1) {
   errors.push("Records CLI adapter should parse OperationOutcome output and summarize errors.");
+}
+const orchTimedOutCli = runValidatorScript(orchestrator, [path.join(plugin, "fixtures/invalid-observation.json")], {
+  ...process.env,
+  PATH: `${fakeRuntimeBin}${path.delimiter}${process.env.PATH || ""}`,
+  RECORDS_TEST_SLOW: "1",
+  RECORDS_VALIDATE_RUNTIME_TIMEOUT_MS: "100",
+});
+if (!orchTimedOutCli.parsed?.runtimeAttempts?.[0]?.fallbackUsed || !/timed out/.test(orchTimedOutCli.parsed?.runtimeAttempts?.[0]?.error || "")) {
+  errors.push("Orchestrator should time out a stalled Records CLI and fall back deterministically.");
 }
 
 if (errors.length) {

@@ -12,15 +12,17 @@
 // This does not generate snapshots or evaluate discriminators against an
 // instance; it reports the profile's declared structure so the agent can route
 // the next step (regenerate snapshot, pick a slice, or fix FSH).
-import { readFile } from "node:fs/promises";
+import { createResultContract } from "./lib/result-contract.mjs";
+import { readStdinLimited, readTextFileLimited } from "./lib/safe-io.mjs";
 
 const file = process.argv[2];
-const text = file ? await readFile(file, "utf8") : await new Promise((resolve) => {
-  let data = "";
-  process.stdin.setEncoding("utf8");
-  process.stdin.on("data", (chunk) => { data += chunk; });
-  process.stdin.on("end", () => resolve(data));
-});
+let text;
+try {
+  text = file ? await readTextFileLimited(file) : await readStdinLimited();
+} catch (error) {
+  console.error(`Cannot read input: ${error.message}`);
+  process.exit(2);
+}
 
 let sd;
 try {
@@ -79,7 +81,15 @@ for (const slice of slicing) {
 }
 
 console.log(JSON.stringify({
-  schemaVersion: 1,
+  ...createResultContract({
+    tool: "analyze-structuredefinition",
+    mode: "structuredefinition-analysis",
+    ok: !needsSnapshot,
+    privacyBoundary: "local-input-only",
+    fhirVersion: sd.fhirVersion || "unknown",
+    validationDepth: "profile-structure-analysis",
+    profilesLoaded: sd.url ? [sd.url] : [],
+  }),
   resourceType: "StructureDefinition",
   url: sd.url || null,
   name: sd.name || null,
@@ -95,5 +105,9 @@ console.log(JSON.stringify({
   differentialElementCount: differentialElements.length,
   needsSnapshot,
   slicing,
+  warnings: caveats,
+  nextActions: needsSnapshot
+    ? ["Generate the snapshot with SUSHI, IG Publisher, or another configured profile-aware tool before validation."]
+    : ["Use the slicing report to map validator issues without inventing slice assignments."],
   caveats,
 }, null, 2));

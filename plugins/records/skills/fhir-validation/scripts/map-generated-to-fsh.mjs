@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-import { readFile, readdir, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import path from "node:path";
+import { createResultContract } from "./lib/result-contract.mjs";
+import { readJsonFileLimited, readTextFileLimited, scanFiles } from "./lib/safe-io.mjs";
 
 const generatedPath = process.argv[2] ? path.resolve(process.argv[2]) : null;
 const root = path.resolve(process.argv[3] || process.cwd());
@@ -11,24 +13,7 @@ if (!generatedPath) {
 }
 
 async function readJson(file) {
-  return JSON.parse(await readFile(file, "utf8"));
-}
-
-async function walk(dir) {
-  const out = [];
-  let entries = [];
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-  for (const entry of entries) {
-    if (["node_modules", ".git", "fsh-generated", "output", "input-cache"].includes(entry.name)) continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...(await walk(full)));
-    else out.push(full);
-  }
-  return out;
+  return await readJsonFileLimited(file);
 }
 
 function declarationNames(text) {
@@ -73,15 +58,31 @@ function scoreCandidate(text, resource, file) {
 
 const resource = await readJson(generatedPath);
 const fshRoot = path.join(root, "input/fsh");
-let fshFiles = (await walk(fshRoot)).filter((file) => file.endsWith(".fsh"));
+let scan = await scanFiles(fshRoot, {
+  include: (file) => file.endsWith(".fsh"),
+  excludeNames: ["node_modules", ".git", "fsh-generated", "output", "input-cache", ".fhir"],
+  maxFiles: 500,
+  maxDirectories: 500,
+  maxEntries: 10_000,
+  maxDepth: 12,
+});
+let fshFiles = scan.files;
 
 if (!fshFiles.length) {
-  fshFiles = (await walk(root)).filter((file) => file.endsWith(".fsh"));
+  scan = await scanFiles(root, {
+    include: (file) => file.endsWith(".fsh"),
+    excludeNames: ["node_modules", ".git", "fsh-generated", "output", "input-cache", ".fhir"],
+    maxFiles: 500,
+    maxDirectories: 500,
+    maxEntries: 10_000,
+    maxDepth: 12,
+  });
+  fshFiles = scan.files;
 }
 
 const candidates = [];
 for (const file of fshFiles) {
-  const text = await readFile(file, "utf8");
+  const text = await readTextFileLimited(file);
   const candidate = scoreCandidate(text, resource, path.relative(root, file));
   if (candidate.score > 0) candidates.push(candidate);
 }
@@ -90,8 +91,16 @@ candidates.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
 
 const generatedStat = await stat(generatedPath);
 const result = {
-  schemaVersion: 1,
+  ...createResultContract({
+    tool: "map-generated-to-fsh",
+    mode: "source-mapping",
+    privacyBoundary: "local-filesystem-only",
+    fhirVersion: resource.fhirVersion || "unknown",
+    validationDepth: "source-attribution",
+    profilesLoaded: Array.isArray(resource.meta?.profile) ? resource.meta.profile : [],
+  }),
   root,
+  scan: scan.stats,
   generatedFile: path.relative(root, generatedPath),
   generatedFileBytes: generatedStat.size,
   resource: {
@@ -105,6 +114,10 @@ const result = {
   },
   fshSearchRoot: path.relative(root, fshRoot),
   candidates,
+  warnings: scan.stats.truncated ? ["FSH source scan reached a safety limit; candidates may be incomplete."] : [],
+  nextActions: candidates.length
+    ? ["Review the highest-confidence source, make only mechanical changes, rebuild with SUSHI, and revalidate."]
+    : ["Find the durable source before changing generated JSON."],
   recommendation: candidates.length
     ? "Edit the highest-confidence FSH source only for mechanical fixes, rebuild with SUSHI, then revalidate."
     : "No matching FSH source found. Do not edit generated JSON unless no durable source exists or the user explicitly asks for a direct generated-artifact patch.",

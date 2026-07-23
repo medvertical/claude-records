@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { createResultContract } from "./lib/result-contract.mjs";
+import { readStdinLimited, readTextFileLimited } from "./lib/safe-io.mjs";
 
 const inputPath = process.argv[2];
-const text = inputPath ? await readFile(inputPath, "utf8") : await new Promise((resolve) => {
-  let data = "";
-  process.stdin.setEncoding("utf8");
-  process.stdin.on("data", (chunk) => { data += chunk; });
-  process.stdin.on("end", () => resolve(data));
-});
+let text;
+try {
+  text = inputPath ? await readTextFileLimited(inputPath) : await readStdinLimited();
+} catch (error) {
+  console.error(`Cannot read input: ${error.message}`);
+  process.exit(2);
+}
 
 const highRiskTypes = new Set(["Patient", "Person", "RelatedPerson", "Practitioner"]);
 const directSensitiveKeys = new Set(["id", "value", "text", "display", "family", "given", "birthDate", "line", "city", "district", "state", "postalCode", "country"]);
@@ -49,7 +51,13 @@ try {
 }
 
 const summary = {
-  schemaVersion: 1,
+  ...createResultContract({
+    tool: "redact-fhir-summary",
+    mode: "local-redacted-summary",
+    privacyBoundary: "local-output-minimized",
+    fhirVersion: typeof parsed.fhirVersion === "string" ? parsed.fhirVersion : "unknown",
+    validationDepth: "not-applicable",
+  }),
   resourceType: parsed.resourceType || "unknown",
   resourceTypes: {},
   metaProfiles: {},
@@ -75,5 +83,9 @@ if (parsed.resourceType === "Bundle" && Array.isArray(parsed.entry)) {
 summary.containedResourcesCounted = Object.values(summary.resourceTypes).reduce((sum, count) => sum + count, 0) - (parsed.resourceType === "Bundle" ? (summary.entryCount || 0) + 1 : 1);
 summary.privacyRiskLevel = riskForTypes(summary.resourceTypes);
 summary.references = Object.fromEntries(Object.entries(summary.references).sort(([a], [b]) => a.localeCompare(b)));
+summary.warnings = summary.privacyRiskLevel === "high"
+  ? ["Patient-like resources were summarized; keep downstream logs and reports access-controlled."]
+  : [];
+summary.nextActions = ["Use this minimized summary instead of reproducing the complete resource in agent output."];
 
 console.log(JSON.stringify(summary, null, 2));

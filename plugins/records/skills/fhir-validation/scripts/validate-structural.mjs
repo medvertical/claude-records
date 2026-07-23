@@ -16,20 +16,12 @@
 //
 // Output: a FHIR OperationOutcome plus a summary. Exit code 0 = no errors,
 // 1 = at least one error-severity issue, 2 = input could not be parsed.
-import { readFile } from "node:fs/promises";
 import { resourceSchemas, coveredResourceTypes } from "./lib/r4-structural-schema.mjs";
 import { validatePrimitive } from "./lib/r4-primitives.mjs";
+import { createResultContract, isR4Version } from "./lib/result-contract.mjs";
+import { readStdinLimited, readTextFileLimited } from "./lib/safe-io.mjs";
 
 const idPattern = /^[A-Za-z0-9\-.]{1,64}$/;
-
-function readStdin() {
-  return new Promise((resolve) => {
-    let data = "";
-    process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (chunk) => { data += chunk; });
-    process.stdin.on("end", () => resolve(data));
-  });
-}
 
 function issue(severity, code, expression, text) {
   return { severity, code, expression: [expression], details: { text } };
@@ -234,7 +226,13 @@ function checkReferences(root, issues) {
 }
 
 const file = process.argv[2] && !process.argv[2].startsWith("-") ? process.argv[2] : null;
-const text = file ? await readFile(file, "utf8") : await readStdin();
+let text;
+try {
+  text = file ? await readTextFileLimited(file) : await readStdinLimited();
+} catch (error) {
+  console.error(`Cannot read input: ${error.message}`);
+  process.exit(2);
+}
 
 let resource;
 try {
@@ -245,8 +243,19 @@ try {
 }
 
 const issues = [];
-validateResource(resource, "$", issues);
-checkReferences(resource, issues);
+const declaredFhirVersion = typeof resource?.fhirVersion === "string" ? resource.fhirVersion : null;
+const unsupportedVersion = declaredFhirVersion && !isR4Version(declaredFhirVersion);
+if (unsupportedVersion) {
+  issues.push(issue(
+    "error",
+    "not-supported",
+    "$.fhirVersion",
+    `Structural fallback embeds FHIR R4 rules and will not validate declared FHIR version ${declaredFhirVersion}.`,
+  ));
+} else {
+  validateResource(resource, "$", issues);
+  checkReferences(resource, issues);
+}
 
 const summary = issues.reduce(
   (acc, item) => {
@@ -257,13 +266,28 @@ const summary = issues.reduce(
 );
 
 const output = {
-  schemaVersion: 1,
-  mode: "structural-fallback",
+  ...createResultContract({
+    tool: "validate-structural",
+    mode: unsupportedVersion ? "blocked-unsupported-fhir-version" : "structural-fallback",
+    ok: !unsupportedVersion && summary.error === 0,
+    privacyBoundary: "local-filesystem-or-stdin-only",
+    fhirVersion: declaredFhirVersion || "4.0.1-rules; input-version-unknown",
+    validationDepth: unsupportedVersion ? "blocked" : "structural-r4",
+    profilesLoaded: [],
+    terminologyMode: "not-checked",
+    referenceMode: "contained-and-intra-bundle-only",
+  }),
   scope: "Base shape, required elements, required choice[x], unknown elements, choice[x] exclusivity, required code enums, primitive datatype formats, and contained/intra-Bundle reference resolution only. Not profile-, terminology-, invariant-, or cross-document-reference-aware.",
   file: file || "<stdin>",
   resourceType: typeof resource?.resourceType === "string" ? resource.resourceType : null,
   coveredResourceTypes,
   summary,
+  warnings: declaredFhirVersion
+    ? []
+    : ["The input does not declare a FHIR version; R4 structural rules were applied without proving version compatibility."],
+  nextActions: unsupportedVersion
+    ? ["Use a validator configured for the declared FHIR version."]
+    : ["Use a profile-aware runtime with the relevant FHIR packages for conformance claims."],
   operationOutcome: {
     resourceType: "OperationOutcome",
     issue: issues.length ? issues : [issue("information", "informational", "$", "No structural issues found.")],
@@ -271,4 +295,4 @@ const output = {
 };
 
 console.log(JSON.stringify(output, null, 2));
-process.exit(summary.error > 0 ? 1 : 0);
+process.exit(unsupportedVersion ? 2 : (summary.error > 0 ? 1 : 0));

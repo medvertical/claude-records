@@ -38,7 +38,7 @@ export function buildPackageDoctor(detector) {
   const severityRank = { error: 3, warning: 2, info: 1 };
   const maxSeverity = findings.reduce((max, finding) => severityRank[finding.severity] > severityRank[max] ? finding.severity : max, "info");
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     maxSeverity,
     fhirVersions,
     packageCache: {

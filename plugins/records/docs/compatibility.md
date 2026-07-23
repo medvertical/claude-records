@@ -1,12 +1,12 @@
 # Compatibility Matrix
 
-This plugin is a Claude Code plugin/skill package. It does not ship the Records Engine, Records API, Records MCP server, SUSHI, IG Publisher, Firely Terminal, HAPI, Java validator, or terminology services.
+This plugin is a Claude Code and Codex skill package. Claude Code additionally consumes the bundled slash commands and reviewer agent metadata. The package does not ship the Records Engine, Records API, Records MCP server, SUSHI, IG Publisher, Firely Terminal, HAPI, Java validator, or terminology services.
 
 Use `skills/fhir-validation/scripts/plan-runtime.mjs <target>` for executable runtime selection and consent gates. Use `skills/fhir-validation/scripts/doctor-packages.mjs <target>` for FHIR package-cache and setup diagnostics.
 
 | Runtime | Detection | Local by default | Profile-aware | Terminology-aware | Network risk | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Records MCP | Claude tool availability | Depends on user config | Yes when backend supports it | Yes when backend supports it | Depends on MCP server | Preferred when configured. |
+| Records MCP | Agent tool availability | Depends on user config | Yes when backend supports it | Yes when backend supports it | Depends on MCP server | Preferred when configured. |
 | Records API | `RECORDS_API_URL` | No | Yes when backend supports it | Yes when backend supports it | High for PHI | Requires explicit consent for patient data. |
 | Records CLI | `records` in `PATH` | Yes | Only if full engine/profile context is configured | Only if configured | Low | Local structural mode must be labeled honestly. |
 | Local Records checkout | `cli/package.json` | Yes | Depends on checkout/runtime | Depends on checkout/runtime | Low | Used only in Records main repo, not this plugin repo. |
@@ -14,7 +14,7 @@ Use `skills/fhir-validation/scripts/plan-runtime.mjs <target>` for executable ru
 | IG Publisher / Java validator | `ig.ini`, Java, validator jar/scripts | Yes | Yes | Often, when tx/package setup is available | Medium if tx server/package download | Use for full IG validation when configured. |
 | Firely Terminal | `fhir` in `PATH` | Yes | Yes with project scope/packages | Can be | Medium if external terminology/packages | Good cross-check when already installed. |
 | HAPI validator | `hapi-fhir-cli` or project scripts | Yes | Yes with packages | Can be | Medium if external terminology/packages | Good cross-check when already installed. |
-| Structural fallback | none | Yes | No | No | Low | JSON shape only; not conformance validation. |
+| Structural fallback | none | Yes | No | No | Low | FHIR R4 JSON shape only; declared non-R4 projects are blocked instead of downgraded silently. |
 
 ## Rules
 
@@ -23,3 +23,4 @@ Use `skills/fhir-validation/scripts/plan-runtime.mjs <target>` for executable ru
 - Do not edit `fsh-generated/resources` when `input/fsh` exists unless the user explicitly asks for a generated-artifact patch.
 - Do not claim profile, terminology, invariant, or reference validation unless the selected runtime actually loaded that context.
 - Prefer redacted summaries for Patient-like resources and Bundles.
+- Preserve the schema-v2 `capabilities` fields in summaries. A declared profile is not a loaded profile.

@@ -13,7 +13,8 @@
 // reported as caveats because they need StructureDefinition/type resolution.
 //
 // Usage: match-slices.mjs <profile-structuredefinition.json> <instance.json>
-import { readFile } from "node:fs/promises";
+import { createResultContract } from "./lib/result-contract.mjs";
+import { readJsonFileLimited } from "./lib/safe-io.mjs";
 
 const [profilePath, instancePath] = [process.argv[2], process.argv[3]];
 if (!profilePath || !instancePath) {
@@ -22,7 +23,7 @@ if (!profilePath || !instancePath) {
 }
 
 async function readJson(file) {
-  return JSON.parse(await readFile(file, "utf8"));
+  return await readJsonFileLimited(file);
 }
 
 const profile = await readJson(profilePath);
@@ -153,9 +154,18 @@ for (const element of elements) {
 }
 
 console.log(JSON.stringify({
-  schemaVersion: 1,
+  ...createResultContract({
+    tool: "match-slices",
+    mode: "structural-slice-matching",
+    privacyBoundary: "local-filesystem-only",
+    fhirVersion: profile.fhirVersion || "unknown",
+    validationDepth: "partial-slicing-analysis",
+    profilesLoaded: profile.url ? [profile.url] : [],
+  }),
   profile: profile.url || null,
   instanceType: instance.resourceType || null,
   slicedElements,
+  warnings: caveats,
+  nextActions: ["Confirm unmatched or unsupported discriminators with a profile-aware validator before editing the instance."],
   caveats,
 }, null, 2));
