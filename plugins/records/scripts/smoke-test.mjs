@@ -2,6 +2,7 @@
 import { access, chmod, mkdir, mkdtemp, readFile, readdir, stat, symlink, writeFile } from "node:fs/promises";
 import { constants, existsSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
@@ -58,6 +59,19 @@ async function readJson(file) {
   }
 }
 
+async function readPngDimensions(file) {
+  const data = await readFile(file);
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  if (data.length < 24 || !data.subarray(0, 8).equals(signature) || data.toString("ascii", 12, 16) !== "IHDR") {
+    errors.push(`${rel(file)} is not a valid PNG with an IHDR header.`);
+    return null;
+  }
+  return {
+    width: data.readUInt32BE(16),
+    height: data.readUInt32BE(20),
+  };
+}
+
 async function walk(dir) {
   const out = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -109,6 +123,8 @@ const codexMarketplace = (await exists(codexMarketplacePath)) ? await readJson(c
 const manifest = await readJson(path.join(plugin, ".claude-plugin/plugin.json"));
 const codexManifestPath = path.join(plugin, ".codex-plugin/plugin.json");
 const codexManifest = (await exists(codexManifestPath)) ? await readJson(codexManifestPath) : null;
+const screenExportManifestPath = path.join(plugin, "assets/marketplace/export-manifest.json");
+const screenExportManifest = (await exists(screenExportManifestPath)) ? await readJson(screenExportManifestPath) : null;
 const packageJson = (await exists(packagePath)) ? await readJson(packagePath) : null;
 const canonicalSkillFile = path.join(plugin, "skills/fhir-validation/SKILL.md");
 const flatSkillFile = path.join(plugin, "skills/fhir-validation.md");
@@ -148,6 +164,56 @@ if (codexMarketplace && codexMarketplace.plugins?.[0]?.category !== "Coding") {
 if (codexManifest?.name !== "records") errors.push("Codex plugin name must remain records.");
 if (codexManifest && codexManifest.version !== manifest?.version) errors.push("Claude and Codex plugin versions differ.");
 if (codexManifest && codexManifest.skills !== "./skills/") errors.push("Codex plugin skills path must remain ./skills/.");
+if (manifest?.displayName !== "Records") errors.push("Claude plugin displayName must remain Records.");
+if (marketplace?.plugins?.[0]?.displayName !== "Records") errors.push("Claude marketplace displayName must remain Records.");
+if (codexManifest?.interface?.displayName !== "Records") errors.push("Codex interface displayName must remain Records.");
+if (codexManifest?.interface?.brandColor !== "#0055FE") errors.push("Codex brand color must use MedVertical blue #0055FE.");
+
+const requiredDiscoveryTerms = [
+  "fhir",
+  "fhir validation",
+  "fhir validator",
+  "hl7 fhir",
+  "fhir r4",
+  "healthcare interoperability",
+  "data quality",
+  "fhir conformance",
+  "fhir profiles",
+  "structuredefinition",
+  "operationoutcome",
+  "implementation guide",
+  "ig publisher",
+  "sushi",
+  "github actions",
+  "ci/cd",
+  "records",
+];
+for (const [label, keywords] of [
+  ["Claude plugin", manifest?.keywords],
+  ["Claude marketplace", marketplace?.plugins?.[0]?.keywords],
+  ["Codex plugin", codexManifest?.keywords],
+]) {
+  const normalized = new Set((keywords || []).map((keyword) => String(keyword).toLowerCase()));
+  for (const term of requiredDiscoveryTerms) {
+    if (!normalized.has(term)) errors.push(`${label} discovery metadata is missing "${term}".`);
+  }
+}
+const claudeTags = new Set(marketplace?.plugins?.[0]?.tags || []);
+for (const tag of ["fhir-validation", "fhir-validator", "data-quality", "implementation-guides", "ci-cd"]) {
+  if (!claudeTags.has(tag)) errors.push(`Claude marketplace tags are missing "${tag}".`);
+}
+for (const text of [
+  manifest?.description,
+  marketplace?.plugins?.[0]?.description,
+  codexManifest?.interface?.shortDescription,
+  codexManifest?.interface?.longDescription,
+]) {
+  if (typeof text !== "string" || !/FHIR/i.test(text)) errors.push("Marketplace descriptions must name FHIR explicitly.");
+}
+const defaultPrompts = codexManifest?.interface?.defaultPrompt || [];
+if (defaultPrompts.length !== 3 || defaultPrompts.some((prompt) => prompt.length > 128)) {
+  errors.push("Codex default prompts must contain exactly three entries of at most 128 characters.");
+}
 
 for (const field of ["composerIcon", "logo", "logoDark"]) {
   const assetPath = codexManifest?.interface?.[field];
@@ -164,17 +230,65 @@ for (const field of ["composerIcon", "logo", "logoDark"]) {
   }
 }
 
+const screenshotPaths = codexManifest?.interface?.screenshots || [];
+if (screenshotPaths.length !== 3) errors.push("Codex interface must expose exactly three Marketplace screenshots.");
+if (screenExportManifest?.viewport?.width !== 1600 || screenExportManifest?.viewport?.height !== 1000) {
+  errors.push("Marketplace export manifest must define a 1600 × 1000 viewport.");
+}
+if (!(await exists(path.join(plugin, "assets/marketplace/index.html")))) {
+  errors.push("Missing deterministic Marketplace screen source.");
+}
+for (const screenshotPath of screenshotPaths) {
+  const screenshotFile = path.resolve(plugin, screenshotPath);
+  const screenshotRelative = path.relative(plugin, screenshotFile);
+  if (
+    typeof screenshotPath !== "string"
+    || !screenshotPath.startsWith("./assets/")
+    || !screenshotPath.endsWith(".png")
+    || screenshotRelative.startsWith("..")
+    || path.isAbsolute(screenshotRelative)
+    || !(await exists(screenshotFile))
+  ) {
+    errors.push(`Invalid Codex Marketplace screenshot: ${screenshotPath}`);
+    continue;
+  }
+  const dimensions = await readPngDimensions(screenshotFile);
+  if (dimensions && (dimensions.width !== 1600 || dimensions.height !== 1000)) {
+    errors.push(`${screenshotPath} must be exactly 1600 × 1000; found ${dimensions.width} × ${dimensions.height}.`);
+  }
+  const expectedExport = screenExportManifest?.screens?.find(
+    (screen) => path.normalize(path.join("assets/marketplace", screen.output)) === path.normalize(screenshotPath.replace(/^\.\//, "")),
+  );
+  const screenshotHash = createHash("sha256").update(await readFile(screenshotFile)).digest("hex");
+  if (!expectedExport || expectedExport.sha256 !== screenshotHash) {
+    errors.push(`${screenshotPath} differs from its Marketplace export manifest.`);
+  }
+}
+
+const canonicalIcon = await readFile(path.join(plugin, "assets/records-app-icon.svg"));
+for (const iconFile of [
+  path.join(repo, "assets/records-app-icon.svg"),
+  ...expectedSkillNames.map((skillName) => path.join(plugin, "skills", skillName, "assets/records-app-icon.svg")),
+]) {
+  if (!(await exists(iconFile))) {
+    errors.push(`Missing canonical Records app icon copy: ${rel(iconFile)}`);
+  } else if (!(await readFile(iconFile)).equals(canonicalIcon)) {
+    errors.push(`Records app icon copy differs from canonical plugin asset: ${rel(iconFile)}`);
+  }
+}
+
 const requiredRepoFiles = marketplace ? ["README.md"] : [];
 const requiredPluginFiles = [
   "README.md",
   "docs/result-contract.md",
   "skills/fhir-validation/agents/openai.yaml",
+  "skills/fhir-validation/assets/records-app-icon.svg",
   "skills/fhir-project-doctor/SKILL.md",
   "skills/fhir-project-doctor/agents/openai.yaml",
-  "skills/fhir-project-doctor/assets/records-signet.svg",
+  "skills/fhir-project-doctor/assets/records-app-icon.svg",
   "skills/fhir-ci-quality/SKILL.md",
   "skills/fhir-ci-quality/agents/openai.yaml",
-  "skills/fhir-ci-quality/assets/records-signet.svg",
+  "skills/fhir-ci-quality/assets/records-app-icon.svg",
   "skills/fhir-validation/references/ig-workflows.md",
   "skills/fhir-validation/references/repair-policy.md",
   "skills/fhir-validation/references/operationoutcome-map.md",
@@ -217,6 +331,7 @@ const requiredPluginFiles = [
   "fixtures/ig-corpus/manifest.json",
   "scripts/codex-e2e.mjs",
   "scripts/eval-ig-corpus.mjs",
+  "assets/records-app-icon.svg",
   "assets/screenshot-validation.png",
   "assets/screenshot-doctor.png",
   "assets/screenshot-ci.png",
@@ -596,6 +711,12 @@ const uploadCi = safeSpawn(process.execPath, [ciGen, "--upload-artifact"], { cwd
 if (!uploadCi.includes("upload-artifact")) errors.push("CI generator --upload-artifact should add an artifact upload step.");
 if (!uploadCi.includes("permissions:\n  contents: read") || !uploadCi.includes("@records-fhir/cli@0.1.1")) {
   errors.push("CI generator should emit least-privilege permissions and a pinned Records CLI.");
+}
+if (!uploadCi.includes("actions/checkout@v5") || !uploadCi.includes("actions/setup-node@v5") || !uploadCi.includes("node-version: 24")) {
+  errors.push("CI generator should emit current Node 24-compatible GitHub Actions.");
+}
+if (uploadCi.includes("actions/checkout@v4") || uploadCi.includes("actions/setup-node@v4") || uploadCi.includes("node-version: 20")) {
+  errors.push("CI generator must not regress to the deprecated Node 20 action runtime.");
 }
 const adversarialCi = safeSpawn(process.execPath, [ciGen, "--dir", "examples; echo injected"], { cwd: repo }).stdout;
 if (!adversarialCi.includes("FHIR_RESOURCE_DIR: 'examples; echo injected'") || adversarialCi.includes("validate-file examples;")) {

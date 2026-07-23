@@ -1,6 +1,6 @@
 ---
 name: fhir-ci-quality
-description: Generate or review FHIR validation CI workflows and derive candidate data-quality rules from local FHIR examples. Use when the user asks to add FHIR checks to GitHub Actions or another CI system, create quality gates, infer project conventions, or turn recurring validation expectations into reviewed automation.
+description: Generate or review FHIR validator CI workflows and derive candidate healthcare data-quality rules from local FHIR examples. Use when the user asks to add FHIR validation to GitHub Actions or another CI/CD system, create conformance quality gates, infer project conventions, or turn recurring validation expectations into reviewed automation.
 ---
 
 # FHIR CI and Quality

@@ -1,22 +1,37 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/records-signet-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="./assets/records-signet.svg">
-    <img src="./assets/records-signet.svg" alt="Records" width="96" height="96">
+    <img src="./assets/records-app-icon.svg" alt="Records" width="96" height="96">
   </picture>
 </p>
 
 # Records Agent Tools
 
 [![Plugin CI](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml)
-![Version](https://img.shields.io/badge/version-0.8.0-blue)
+![Version](https://img.shields.io/badge/version-0.8.1-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
 FHIR validation and data-quality workflow skills for Claude Code and Codex.
 
 Records helps FHIR developers, IG authors, and AI agents validate FHIR JSON, explain validation issues, add CI checks, and run validate-patch-revalidate workflows without sending patient data to an external service by default.
 
+Use Records as a local-first FHIR validator for HL7 FHIR R4 resources, `OperationOutcome` triage, `StructureDefinition` and profile workflows, FSH/SUSHI Implementation Guides, IG Publisher setup, and GitHub Actions quality gates.
+
 Learn more at [medvertical.com](https://medvertical.com) and [medvertical.com/records](https://medvertical.com/records).
+
+## Preview
+
+<table>
+  <tr>
+    <td><img src="./assets/screenshot-validation.png" alt="Records FHIR validation result" width="460"></td>
+    <td><img src="./assets/screenshot-doctor.png" alt="Records FHIR project diagnostics" width="460"></td>
+    <td><img src="./assets/screenshot-ci.png" alt="Records FHIR CI quality gate" width="460"></td>
+  </tr>
+  <tr>
+    <td align="center">FHIR validation</td>
+    <td align="center">Project diagnostics</td>
+    <td align="center">CI quality gates</td>
+  </tr>
+</table>
 
 ## Install
 
@@ -176,13 +191,13 @@ Machine-readable helper output follows the [result contract](./docs/result-contr
 - Generated JSON has validation errors: edit `input/fsh` when FSH sources exist, then rebuild with SUSHI.
 - Full profile validation is not running: confirm the validator has access to the required profiles, packages, terminology, and FHIR version.
 
-## Registry
+## Distribution
 
-Canonical marketplace source is `medvertical/records-agent-tools`. The ClaudeRegistry submission is for Claude Code discovery and review.
+The canonical Claude Code and Codex marketplace source is `medvertical/records-agent-tools`. Claude community marketplace submission material lives in [submission.md](./submission.md); the repository remains directly installable before and during directory review.
 
 ## Release Notes
 
-See [eval-results/v0.8.0.md](./eval-results/v0.8.0.md) for the current release checks and scope.
+See [eval-results/v0.8.1.md](./eval-results/v0.8.1.md) for the current release checks and scope.
 
 ## Development
 

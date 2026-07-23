@@ -1,6 +1,6 @@
 ---
 name: fhir-validation
-description: Validate FHIR JSON resources, Implementation Guide examples, and AI-created FHIR output; explain OperationOutcome issues; map defects back to FSH; and run safe validate-patch-revalidate loops. Use for concrete resource validation, conformance triage, issue explanation, and mechanical repair. Use fhir-project-doctor for runtime/package setup and fhir-ci-quality for CI or inferred quality rules.
+description: Validate HL7 FHIR R4 JSON resources, FHIR profile and Implementation Guide examples, and AI-created FHIR output; explain OperationOutcome and StructureDefinition issues; map defects back to FSH; and run safe validate-patch-revalidate loops. Use when the user asks for a FHIR validator, FHIR conformance check, profile validation, issue explanation, or mechanical repair. Use fhir-project-doctor for runtime/package setup and fhir-ci-quality for CI or inferred quality rules.
 ---
 
 # Records FHIR Validation

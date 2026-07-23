@@ -1,6 +1,6 @@
 ---
 name: fhir-project-doctor
-description: Inspect a FHIR, FSH, or Implementation Guide project for available validators, FHIR package dependencies, cache state, version signals, privacy gates, and setup blockers. Use when validation cannot start, profiles or packages are missing, SUSHI/IG Publisher/Firely/HAPI/Records availability is unclear, or the user asks to diagnose or prepare a FHIR project.
+description: Inspect an HL7 FHIR, FSH/SUSHI, or Implementation Guide project for validator runtimes, FHIR package dependencies, cache state, version signals, privacy gates, and setup blockers. Use when FHIR validation cannot start, profiles or packages are missing, IG Publisher/Firely/HAPI/Records availability is unclear, or the user asks to diagnose or prepare a FHIR conformance project.
 ---
 
 # FHIR Project Doctor

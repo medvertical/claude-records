@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "medvertical",
-  "description": "Claude Code plugins for Records FHIR validation and data quality workflows.",
+  "description": "Records by MedVertical: local-first FHIR validation, Implementation Guide diagnostics, and CI quality workflows.",
   "owner": {
     "name": "MedVertical",
     "email": "hello@medvertical.com"
@@ -9,21 +9,49 @@
   "plugins": [
     {
       "name": "records",
+      "displayName": "Records",
       "source": "./plugins/records",
-      "description": "FHIR validation and data-quality workflows with Records.",
+      "description": "Validate FHIR R4 resources, diagnose FHIR Implementation Guide projects, explain conformance issues, and generate reviewed CI quality gates.",
       "category": "development",
-      "version": "0.8.0",
+      "version": "0.8.1",
       "author": {
         "name": "MedVertical"
       },
       "homepage": "https://github.com/medvertical/records-agent-tools",
       "keywords": [
         "fhir",
+        "fhir validation",
+        "fhir validator",
         "hl7",
-        "validation",
-        "healthcare",
-        "mcp",
+        "hl7 fhir",
+        "fhir r4",
+        "healthcare interoperability",
+        "health data",
+        "data quality",
+        "fhir conformance",
+        "fhir profiles",
+        "structuredefinition",
+        "operationoutcome",
+        "implementation guide",
+        "ig authoring",
+        "ig publisher",
+        "sushi",
+        "terminology",
+        "github actions",
+        "ci/cd",
         "records"
+      ],
+      "tags": [
+        "fhir",
+        "hl7-fhir",
+        "fhir-validation",
+        "fhir-validator",
+        "healthcare",
+        "interoperability",
+        "data-quality",
+        "implementation-guides",
+        "ig-authoring",
+        "ci-cd"
       ]
     }
   ]
