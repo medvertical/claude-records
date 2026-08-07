@@ -4,7 +4,7 @@ description: Read-only reviewer for FHIR validation, IG, SUSHI/FSH, OperationOut
 model: sonnet
 effort: medium
 maxTurns: 12
-disallowedTools: Write, Edit, MultiEdit
+tools: ["Read", "Grep", "Glob", "Bash", "Skill"]
 skills:
   - fhir-validation
 ---

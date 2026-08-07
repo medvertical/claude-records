@@ -13,7 +13,7 @@
       "source": "./plugins/records",
       "description": "Validate FHIR R4 resources, diagnose FHIR Implementation Guide projects, explain conformance issues, and generate reviewed CI quality gates.",
       "category": "development",
-      "version": "0.8.1",
+      "version": "0.8.2",
       "author": {
         "name": "MedVertical"
       },

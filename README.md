@@ -7,7 +7,7 @@
 # Records Agent Tools
 
 [![Plugin CI](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml)
-![Version](https://img.shields.io/badge/version-0.8.1-blue)
+![Version](https://img.shields.io/badge/version-0.8.2-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
 FHIR validation and data-quality workflow skills for Claude Code and Codex.
@@ -37,9 +37,18 @@ Learn more at [medvertical.com](https://medvertical.com) and [medvertical.com/re
 
 ### Claude Code
 
+From your shell:
+
 ```bash
 claude plugin marketplace add medvertical/records-agent-tools
 claude plugin install records@medvertical
+```
+
+Or from inside a Claude Code session:
+
+```text
+/plugin marketplace add medvertical/records-agent-tools
+/plugin install records@medvertical
 ```
 
 Run local FHIR validation with:
@@ -197,7 +206,7 @@ The canonical Claude Code and Codex marketplace source is `medvertical/records-a
 
 ## Release Notes
 
-See [plugins/records/eval-results/v0.8.1.md](./plugins/records/eval-results/v0.8.1.md) for the current release checks and scope.
+See [plugins/records/eval-results/v0.8.2.md](./plugins/records/eval-results/v0.8.2.md) for the current release checks and scope.
 
 ## Development
 
