@@ -7,7 +7,9 @@ argument-hint: "[operationoutcome-json-or-file]"
 
 Use `/records:fhir-validation` and read `skills/fhir-validation/references/operationoutcome-map.md`.
 
-Input: `$ARGUMENTS`, pasted JSON, or a file path.
+Input: `$ARGUMENTS`, pasted JSON, or a file path. The bundled sample lives at
+`${CLAUDE_PLUGIN_ROOT}/fixtures/operationoutcome-required.json` when the user
+asks for the quickstart without a path.
 
 When a file path is available, prefer:
 

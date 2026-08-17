@@ -12,6 +12,12 @@ such.
 
 Target: `$ARGUMENTS` or the current working directory.
 
+Bundled non-PHI demo fixtures ship inside the installed plugin, not in the
+user's project: `${CLAUDE_PLUGIN_ROOT}/fixtures/` (for example
+`${CLAUDE_PLUGIN_ROOT}/fixtures/invalid-observation.json`). When the user asks
+for the bundled fixtures or the quickstart without giving a path, resolve them
+there instead of looking in the working directory.
+
 Run the orchestrator, which detects project context, builds a runtime plan,
 enforces privacy gates, validates each resource, and enriches every issue with
 fixability guidance and a JSON Pointer:

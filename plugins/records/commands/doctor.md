@@ -9,6 +9,10 @@ Use the `fhir-project-doctor` skill for this diagnostic task.
 
 Target: `$ARGUMENTS` or the current working directory.
 
+The bundled demo IG lives inside the installed plugin at
+`${CLAUDE_PLUGIN_ROOT}/fixtures/mini-ig`; use that path when the user asks to
+try the doctor on the bundled quickstart fixtures without giving a path.
+
 Run the deterministic detector, runtime planner, and package doctor when available:
 
 ```bash

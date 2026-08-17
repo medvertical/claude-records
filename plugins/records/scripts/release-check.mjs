@@ -80,6 +80,25 @@ for (const dependency of ["@anthropic-ai/claude-code", "@openai/codex"]) {
 const whitespace = runProcess("git", ["diff", "--check"], { cwd: repo, timeout: 10_000 });
 if (whitespace.status !== 0) failures.push(whitespace.stderr || whitespace.stdout || "git diff --check failed.");
 
+// Every released version must carry a git tag, so /releases/latest and the
+// marketplace listings cannot silently drift behind main (v0.8.2/v0.8.3
+// shipped untagged in August 2026). The current version is exempt because
+// release-check runs before scripts/release.mjs creates its tag. v0.7.0 is
+// exempt because it never had a release commit: its eval-results file first
+// landed in the v0.8.0 commit, so there is no honest commit to tag.
+const TAG_EXEMPT = new Set([version, "0.7.0"]);
+const { readdir } = await import("node:fs/promises");
+const evalVersions = (await readdir(path.join(plugin, "eval-results")))
+  .map((file) => file.match(/^v(\d+\.\d+\.\d+)\.md$/)?.[1])
+  .filter(Boolean);
+const tagList = runProcess("git", ["tag", "--list", "v*"], { cwd: repo, timeout: 10_000 });
+const tags = new Set((tagList.stdout || "").split(/\r?\n/).filter(Boolean));
+for (const released of evalVersions) {
+  if (!TAG_EXEMPT.has(released) && !tags.has(`v${released}`)) {
+    failures.push(`Released version v${released} has eval results but no git tag; tag it or the release history drifts.`);
+  }
+}
+
 if (failures.length) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);

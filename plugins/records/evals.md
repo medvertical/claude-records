@@ -2,6 +2,8 @@
 
 Use these prompts before releasing a new plugin version. The goal is not to prove model determinism; it is to catch obvious skill-regression patterns before publishing.
 
+Scenarios 2, 10, and 19 (generic-JSON routing) are additionally automated in `scripts/eval-prompts.mjs` (`RECORDS_CLAUDE_E2E_LIVE=1 npm run eval:prompts`); the remaining scenarios stay manual.
+
 ## 1. Single Invalid Patient File
 
 Prompt:

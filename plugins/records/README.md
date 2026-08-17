@@ -7,7 +7,7 @@
 # Records Agent Tools
 
 [![Plugin CI](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml)
-![Version](https://img.shields.io/badge/version-0.8.3-blue)
+![Version](https://img.shields.io/badge/version-0.8.4-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![Verified by ClaudeRegistry](https://clauderegistry.com/badge/records.svg)](https://clauderegistry.com/plugin/records)
 
@@ -98,6 +98,11 @@ After installation, try the bundled non-PHI fixtures. In Claude Code:
 /records:doctor fixtures/mini-ig
 /records:explain-outcome fixtures/operationoutcome-required.json
 ```
+
+The paths above work inside this repository. After a marketplace install the
+fixtures live inside the plugin instead — ask for them without a path ("run
+the Records quickstart on the bundled fixtures") and the commands resolve them
+from the installed plugin directory.
 
 The first command runs the end-to-end local validation orchestrator. The second detects a mini SUSHI/FSH IG project. The third explains a sample `OperationOutcome` without claiming that a new validation run happened.
 
@@ -218,7 +223,7 @@ Records is additionally listed in the ClaudeRegistry community marketplace as a 
 
 ## Release Notes
 
-See [eval-results/v0.8.3.md](./eval-results/v0.8.3.md) for the current release checks and scope.
+See [eval-results/v0.8.4.md](./eval-results/v0.8.4.md) for the current release checks and scope.
 
 ## Development
 
