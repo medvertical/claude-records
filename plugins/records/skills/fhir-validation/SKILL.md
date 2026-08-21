@@ -29,7 +29,7 @@ Use their output to pick source directories, generated directories, available ru
 Then choose the first suitable mode:
 
 1. Records MCP tools, when available.
-2. Records API, only when `RECORDS_API_URL` is configured and the privacy boundary is acceptable.
+2. Records API, only when `RECORDS_API_URL` is configured and the privacy boundary is acceptable. Before calling it, read [references/hosted-api.md](references/hosted-api.md) and follow that contract exactly.
 3. Records CLI, using `records validate-file <target>`.
 4. Existing local profile-aware validators such as SUSHI, IG Publisher, Firely Terminal, Java validator, or HAPI when already configured and relevant.
 5. Structural fallback via `scripts/validate-structural.mjs` ([scope](references/structural-validation.md)), clearly labeled as not profile-, terminology-, invariant-, or reference-aware.
@@ -69,6 +69,7 @@ Load detail files only when the task needs them:
 
 - IG, SUSHI, FSH, IG Publisher, Firely, HAPI, or generated-resource workflows: [references/ig-workflows.md](references/ig-workflows.md)
 - OperationOutcome explanation or issue-code triage: [references/operationoutcome-map.md](references/operationoutcome-map.md)
+- Hosted Records API validation: [references/hosted-api.md](references/hosted-api.md)
 - Safe repair boundaries and domain-input rules: [references/repair-policy.md](references/repair-policy.md)
 - Runtime/package diagnosis: use the companion `$fhir-project-doctor` skill.
 - Data-quality rules and CI quality gates: use the companion `$fhir-ci-quality` skill.

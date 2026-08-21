@@ -292,6 +292,7 @@ const requiredPluginFiles = [
   "skills/fhir-validation/references/ig-workflows.md",
   "skills/fhir-validation/references/repair-policy.md",
   "skills/fhir-validation/references/operationoutcome-map.md",
+  "skills/fhir-validation/references/hosted-api.md",
   "skills/fhir-validation/references/quality-rules.md",
   "skills/fhir-validation/references/ci-templates.md",
   "skills/fhir-validation/references/structural-validation.md",
@@ -343,6 +344,21 @@ for (const file of requiredPluginFiles) {
   if (!(await exists(path.join(plugin, file)))) errors.push(`Missing required file: ${path.relative(repo, path.join(plugin, file))}`);
 }
 if (!(await exists(skillFile))) errors.push("Missing required skill file: skills/fhir-validation/SKILL.md or skills/fhir-validation.md");
+
+const hostedApiReference = await readFile(
+  path.join(plugin, "skills/fhir-validation/references/hosted-api.md"),
+  "utf8",
+);
+for (const requiredContract of [
+  "https://records.api.medvertical.com",
+  "RECORDS_AUTH_TOKEN",
+  "/api/validation/validate-resource-detailed",
+  "Do not add or guess a `serverId`",
+]) {
+  if (!hostedApiReference.includes(requiredContract)) {
+    errors.push(`Hosted API reference is missing contract: ${requiredContract}`);
+  }
+}
 
 const markdownFiles = (await walk(plugin)).filter((file) => file.endsWith(".md"));
 for (const file of markdownFiles) {
