@@ -8,7 +8,7 @@ By default, the skill instructs the coding agent to use local project files, loc
 
 ## Hosted API Mode
 
-Hosted validation is opt-in. The skill uses a Records API only when `RECORDS_API_URL` is configured by the user or project. Authentication is provided through user-managed configuration such as `RECORDS_AUTH_TOKEN`, `RECORDS_API_KEY` passed as a CLI `--auth-token`, or the Records CLI config.
+Hosted validation is opt-in. The skill uses a Records API only when `RECORDS_API_URL` is configured by the user or project. Interactive plugin authentication uses the user-managed `RECORDS_AUTH_TOKEN`. A CI workflow may instead name its secret `RECORDS_API_KEY` and pass it explicitly to the Records CLI `--auth-token` option; the plugin does not treat that CI variable as its interactive token.
 
 ## Structural Fallback
 

@@ -7,7 +7,7 @@
 # Records Agent Tools
 
 [![Plugin CI](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml)
-![Version](https://img.shields.io/badge/version-0.8.4-blue)
+![Version](https://img.shields.io/badge/version-0.8.5-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![Verified by ClaudeRegistry](https://clauderegistry.com/badge/records.svg)](https://clauderegistry.com/plugin/records)
 
@@ -105,6 +105,10 @@ the Records quickstart on the bundled fixtures") and the commands resolve them
 from the installed plugin directory.
 
 The first command runs the end-to-end local validation orchestrator. The second detects a mini SUSHI/FSH IG project. The third explains a sample `OperationOutcome` without claiming that a new validation run happened.
+
+### Hosted Records API
+
+Hosted validation is opt-in. Start Claude Code with `RECORDS_API_URL` and the interactive bearer token in `RECORDS_AUTH_TOKEN`; never store the token in a repository or paste it into a prompt. The canonical MedVertical-hosted API base is `https://records.api.medvertical.com`. The plugin uses the stateless `POST /api/validation/validate-resource-detailed` endpoint and never guesses a workspace `serverId`.
 
 In Codex, ask for the same workflows in natural language and reference the fixture path.
 
@@ -223,7 +227,7 @@ Records is additionally listed in the ClaudeRegistry community marketplace as a 
 
 ## Release Notes
 
-See [eval-results/v0.8.4.md](./eval-results/v0.8.4.md) for the current release checks and scope.
+See [eval-results/v0.8.5.md](./eval-results/v0.8.5.md) for the current release checks and scope.
 
 ## Development
 
