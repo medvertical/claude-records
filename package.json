@@ -1,7 +1,7 @@
 {
   "name": "records-agent-tools",
   "private": true,
-  "version": "0.8.5",
+  "version": "0.8.6",
   "type": "module",
   "scripts": {
     "test": "node plugins/records/scripts/smoke-test.mjs && node plugins/records/scripts/eval-fixtures.mjs && node plugins/records/scripts/eval-ig-corpus.mjs",

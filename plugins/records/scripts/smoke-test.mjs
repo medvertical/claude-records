@@ -354,9 +354,24 @@ for (const requiredContract of [
   "RECORDS_AUTH_TOKEN",
   "/api/validation/validate-resource-detailed",
   "Do not add or guess a `serverId`",
+  "Treat a configured `RECORDS_API_URL` as hosted opt-in",
+  "Treat every non-`2xx` HTTP response as a remote-validation failure",
 ]) {
   if (!hostedApiReference.includes(requiredContract)) {
     errors.push(`Hosted API reference is missing contract: ${requiredContract}`);
+  }
+}
+
+const fhirValidationSkill = await readFile(
+  path.join(plugin, "skills/fhir-validation/SKILL.md"),
+  "utf8",
+);
+for (const apiSelectionContract of [
+  "when `RECORDS_API_URL` is configured or the user explicitly requests hosted Records validation",
+  "Treat a configured URL as the user's hosted/API selection",
+]) {
+  if (!fhirValidationSkill.includes(apiSelectionContract)) {
+    errors.push(`FHIR validation skill is missing API selection contract: ${apiSelectionContract}`);
   }
 }
 

@@ -29,7 +29,7 @@ Use their output to pick source directories, generated directories, available ru
 Then choose the first suitable mode:
 
 1. Records MCP tools, when available.
-2. Records API, only when `RECORDS_API_URL` is configured and the privacy boundary is acceptable. Before calling it, read [references/hosted-api.md](references/hosted-api.md) and follow that contract exactly.
+2. Records API, when `RECORDS_API_URL` is configured or the user explicitly requests hosted Records validation, and the privacy boundary is acceptable. Treat a configured URL as the user's hosted/API selection. An explicit hosted request without a configured URL still requires the base URL to be configured before the call. Before calling it, read [references/hosted-api.md](references/hosted-api.md) and follow that contract exactly.
 3. Records CLI, using `records validate-file <target>`.
 4. Existing local profile-aware validators such as SUSHI, IG Publisher, Firely Terminal, Java validator, or HAPI when already configured and relevant.
 5. Structural fallback via `scripts/validate-structural.mjs` ([scope](references/structural-validation.md)), clearly labeled as not profile-, terminology-, invariant-, or reference-aware.
