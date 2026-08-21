@@ -7,7 +7,7 @@
 # Records Agent Tools
 
 [![Plugin CI](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/medvertical/records-agent-tools/actions/workflows/plugin-ci.yml)
-![Version](https://img.shields.io/badge/version-0.8.5-blue)
+![Version](https://img.shields.io/badge/version-0.8.6-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![Verified by ClaudeRegistry](https://clauderegistry.com/badge/records.svg)](https://clauderegistry.com/plugin/records)
 
@@ -227,7 +227,7 @@ Records is additionally listed in the ClaudeRegistry community marketplace as a 
 
 ## Release Notes
 
-See [plugins/records/eval-results/v0.8.5.md](./plugins/records/eval-results/v0.8.5.md) for the current release checks and scope.
+See [plugins/records/eval-results/v0.8.6.md](./plugins/records/eval-results/v0.8.6.md) for the current release checks and scope.
 
 ## Development
 

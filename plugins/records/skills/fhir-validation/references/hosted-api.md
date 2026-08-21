@@ -1,6 +1,6 @@
 # Hosted Records API Contract
 
-Use this contract only when the user explicitly requests hosted Records validation and the privacy gate permits sending the selected resource.
+Use this contract when `RECORDS_API_URL` is configured or the user explicitly requests hosted Records validation. Treat a configured `RECORDS_API_URL` as hosted opt-in. In either case, the privacy gate must permit sending the selected resource. An explicit hosted request without a configured URL still requires the base URL to be configured before the call.
 
 ## Configuration
 
@@ -21,7 +21,7 @@ Send `POST {RECORDS_API_URL}/api/validation/validate-resource-detailed` with:
 
 Add `profile` only when the user or project supplies a canonical profile URL. Do not add or guess a `serverId`: this endpoint is stateless live validation and must not read or write workspace evidence.
 
-Use `Authorization: Bearer <RECORDS_AUTH_TOKEN>` and `Content-Type: application/json`. Treat `401`, `403`, and `5xx` responses as remote-validation failures. Do not silently switch to local validation when the user explicitly required the hosted API.
+Use `Authorization: Bearer <RECORDS_AUTH_TOKEN>` and `Content-Type: application/json`. Accept validation output only from a `2xx` response. Treat every non-`2xx` HTTP response as a remote-validation failure, and never interpret its body as validation output. Do not silently switch to local validation when hosted/API mode was selected through configuration or an explicit user request.
 
 ## Output Boundary
 
