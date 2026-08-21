@@ -360,6 +360,11 @@ for (const requiredContract of [
   }
 }
 
+const pluginCiWorkflow = await readFile(path.join(repo, ".github/workflows/plugin-ci.yml"), "utf8");
+if (!pluginCiWorkflow.includes("fetch-depth: 0")) {
+  errors.push("Plugin CI must fetch tags before enforcing release-history metadata.");
+}
+
 const markdownFiles = (await walk(plugin)).filter((file) => file.endsWith(".md"));
 for (const file of markdownFiles) {
   const text = await readFile(file, "utf8");
